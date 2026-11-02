@@ -18,12 +18,14 @@ from core.command_parser import parse_command
 test_phrases = [
     ("pass", "pass"),
     ("đạt", "pass"),
-    ("mũi", "position"),
-    ("gót", "position"),
-    ("a một", "inspection"),
-    ("mũi một", "inspection"),
-    ("gót mười bảy sửa", "reins_fail"),
+    ("đạt lại", "reins_pass"),
     ("sửa đạt", "reins_pass"),
+    ("lỗi", "fail"),
+    ("lỗi lại", "sua"),
+    ("một mười bảy", "inspection"),
+    ("hai mươi tám", "inspection"),
+    ("ba mươi bảy", "inspection"),
+    ("một mười bảy sửa", "reins_fail"),
     ("hủy", "cancel"),
 ]
 

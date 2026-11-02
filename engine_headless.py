@@ -106,7 +106,7 @@ def _print_visual_command(text: str, cmd: dict | None, lat_ms: float = 0.0, conf
             print("└──" + "─" * 70 + "┘\n", flush=True)
 
         elif intent == "reins_pass":
-            print(f"\n┌── 🔄 [P211] TÁI KIỂM: SỬA ĐẠT (RE-PASS) " + "─" * 31 + "┐", flush=True)
+            print(f"\n┌── 🔄 [P211] TÁI KIỂM: ĐẠT LẠI / SỬA ĐẠT (RE-PASS) " + "─" * 21 + "┐", flush=True)
             print(f"│  📝 Giọng  : \"\033[92m{text}\033[0m\"" + " " * max(1, 38 - len(text)) + f"{perf_str:<25} │", flush=True)
             print("└──" + "─" * 70 + "┘\n", flush=True)
 
@@ -115,9 +115,19 @@ def _print_visual_command(text: str, cmd: dict | None, lat_ms: float = 0.0, conf
             def_id = cmd.get("defect", 0)
             pos_label = get_pos_label(pos_id, bold=True)
             def_label = _DEFECT_SHORT_MAP.get(def_id, f"Lỗi #{def_id:02d}")
-            print(f"\n┌── 🔄 [P211] TÁI KIỂM: SỬA LẠI (RE-FAIL) " + "─" * 30 + "┐", flush=True)
+            print(f"\n┌── 🔄 [P211] TÁI KIỂM: LỖI LẠI / SỬA LẠI (RE-FAIL) " + "─" * 20 + "┐", flush=True)
             print(f"│  📍 Vị trí : \033[96m{pos_label:<26}\033[0m  ⚠️ Lỗi: \033[93m{def_label:<32}\033[0m │", flush=True)
             print(f"│  📝 Giọng  : \"\033[92m{text}\033[0m\"" + " " * max(1, 38 - len(text)) + f"{perf_str:<25} │", flush=True)
+            print("└──" + "─" * 70 + "┘\n", flush=True)
+
+        elif intent == "fail":
+            print(f"\n┌── ❌ [P211] KẾT QUẢ QUY TRÌNH: SẢN PHẨM LỖI (FAIL) " + "─" * 20 + "┐", flush=True)
+            print(f"│  📝 Giọng  : \"\033[93m{text}\033[0m\"" + " " * max(1, 38 - len(text)) + f"{perf_str:<25} │", flush=True)
+            print("└──" + "─" * 70 + "┘\n", flush=True)
+
+        elif intent == "sua":
+            print(f"\n┌── 🔄 [P211] TÁI KIỂM: LỖI LẠI / SỬA LẠI (RE-FAIL) " + "─" * 20 + "┐", flush=True)
+            print(f"│  📝 Giọng  : \"\033[93m{text}\033[0m\"" + " " * max(1, 38 - len(text)) + f"{perf_str:<25} │", flush=True)
             print("└──" + "─" * 70 + "┘\n", flush=True)
 
         elif intent == "cancel":
@@ -357,7 +367,7 @@ def run_engine(ipc_mode: bool = False, device_spec=None, noise_gate: int = 180, 
         return
 
     if not _IS_IPC_MODE:
-        print("\n🚀 [READY] VoiceEngine đã sẵn sàng! Mời bạn nói lệnh (Pass, Mũi một, Gót mười tám sửa...):")
+        print("\n🚀 [READY] VoiceEngine đã sẵn sàng! Mời bạn đọc lệnh (Đạt, Đạt lại, Lỗi, Lỗi lại, Số - Số: 1.17, 2.18, 3.17...):")
         print("   (Bấm Ctrl+C để thoát)\n")
     else:
         emit_ipc_event({
@@ -457,6 +467,10 @@ def run_engine(ipc_mode: bool = False, device_spec=None, noise_gate: int = 180, 
             # Phân tích câu lệnh QA
             cmd = parse_command(text)
             is_valid_cmd = (cmd is not None)
+
+            # Bỏ qua tạp âm độ tin cậy thấp nếu không khớp bất kỳ lệnh QA nào
+            if not is_valid_cmd and conf < Config.VOICE_MIN_CONFIDENCE:
+                continue
 
             # Xác định có ghi file .wav hay không theo wav_mode
             should_save_wav = False
