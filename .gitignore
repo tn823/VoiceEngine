@@ -41,10 +41,7 @@ wheels/
 credentials*
 secrets*
 
-# Audio and models (GitHub file size limit 100MB)
-models/
-*.bin
-*.onnx
+# Audio and logs (Do NOT commit recordings or logs)
 *.wav
 *.mp3
 logs/
@@ -52,3 +49,4 @@ recordings/
 shadow_wav/
 *.jsonl
 *.log
+.cache/

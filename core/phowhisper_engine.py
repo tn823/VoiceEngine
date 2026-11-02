@@ -3,6 +3,7 @@
 PhoWhisper Inference Engine
 Sử dụng CTranslate2 (faster-whisper) chạy CPU INT8 siêu nhẹ, độ trễ thấp.
 Hỗ trợ cả streaming buffer (numpy float32) và file audio.
+Tự động fallback về HuggingFace (ntn823/phowhisper-tiny-cuchi-int8) nếu thiếu model offline.
 """
 
 import os
@@ -34,6 +35,8 @@ _DEFAULT_INITIAL_PROMPT = (
     "Một A, Hai Bê, Pass, Đạt, Sửa Đạt, Sửa Lỗi."
 )
 
+_HF_REPO_ID = "ntn823/phowhisper-tiny-cuchi-int8"
+
 
 class PhoWhisperEngine:
     def __init__(self, model_path: str = "", cpu_threads: int = 2):
@@ -58,12 +61,14 @@ class PhoWhisperEngine:
         if WhisperModel is None:
             raise ImportError("Chưa cài đặt thư viện faster-whisper! Chạy: pip install faster-whisper")
 
-        if not os.path.exists(self.model_path):
-            raise FileNotFoundError(f"Không tìm thấy thư mục mô hình PhoWhisper CT2 tại: {self.model_path}")
+        target_model = self.model_path
+        if not os.path.exists(target_model):
+            print(f"[PHOWHISPER] Không tìm thấy model tại local ({target_model}) -> Tự động nạp từ HuggingFace: {_HF_REPO_ID}...")
+            target_model = _HF_REPO_ID
 
-        print(f"[PHOWHISPER] Đang nạp mô hình CT2 INT8: {self.model_path} (cpu_threads={self.cpu_threads})...")
+        print(f"[PHOWHISPER] Đang nạp mô hình CT2 INT8: {target_model} (cpu_threads={self.cpu_threads})...")
         self.model = WhisperModel(
-            self.model_path,
+            target_model,
             device="cpu",
             compute_type="int8",
             cpu_threads=self.cpu_threads,

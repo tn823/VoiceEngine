@@ -159,36 +159,99 @@ def emit_ipc_event(data: dict):
         sys.stderr.flush()
 
 
-def resolve_audio_device(device_spec, sd):
+def resolve_audio_device(device_spec, sd, target_sr: int = Config.SAMPLE_RATE):
     """
     Xác định device index phù hợp từ chỉ định của người dùng hoặc tự động chọn.
-    Ưu tiên Windows WASAPI để đạt độ trễ thấp và độ ổn định cao.
+    Tự động kiểm tra tính tương thích của sample rate (16000Hz).
+    Ưu tiên: WASAPI (nếu hỗ trợ 16kHz) -> DirectSound -> MME.
     """
     devices = sd.query_devices()
-    wasapi_id = next((i for i, api in enumerate(sd.query_hostapis()) if "wasapi" in api["name"].lower()), None)
+    hostapis = sd.query_hostapis()
+    wasapi_id = next((i for i, api in enumerate(hostapis) if "wasapi" in api["name"].lower()), None)
+    dsound_id = next((i for i, api in enumerate(hostapis) if "directsound" in api["name"].lower()), None)
+    mme_id = next((i for i, api in enumerate(hostapis) if "mme" in api["name"].lower()), None)
 
+    def is_rate_supported(idx):
+        if idx is None or idx < 0 or idx >= len(devices):
+            return False
+        if devices[idx].get("max_input_channels", 0) <= 0:
+            return False
+        try:
+            sd.check_input_settings(device=idx, samplerate=target_sr, channels=1, dtype="int16")
+            return True
+        except Exception:
+            return False
+
+    # Xử lý khi người dùng truyền số (dạng int hoặc chuỗi số "1", "7")
+    target_idx = None
     if isinstance(device_spec, int):
-        return device_spec
+        target_idx = device_spec
+    elif isinstance(device_spec, str) and device_spec.strip().isdigit():
+        target_idx = int(device_spec.strip())
+
+    if target_idx is not None:
+        if is_rate_supported(target_idx):
+            return target_idx
+        # Nếu index chỉ định không hỗ trợ 16kHz (ví dụ WASAPI Realtek), tự động tìm phiên bản DirectSound/MME của thiết bị đó
+        if 0 <= target_idx < len(devices):
+            dev_name = devices[target_idx]["name"]
+            for idx, dev in enumerate(devices):
+                if dev.get("max_input_channels", 0) > 0 and dev["name"] == dev_name and is_rate_supported(idx):
+                    return idx
+        return target_idx
 
     spec_str = str(device_spec).strip().lower() if device_spec else ""
 
-    # 1. Nếu có tên thiết bị chỉ định (vd: 'oris', 'realtek', 'usb'):
+    # 1. Nếu có tên thiết bị chỉ định (vd: 'realtek', 'redmi', 'usb'):
     if spec_str:
+        # Thử WASAPI trước nếu hỗ trợ 16kHz
         if wasapi_id is not None:
             for idx, dev in enumerate(devices):
                 if dev.get("max_input_channels", 0) > 0 and dev.get("hostapi") == wasapi_id and spec_str in dev["name"].lower():
-                    return idx
+                    if is_rate_supported(idx):
+                        return idx
+        # Thử DirectSound
+        if dsound_id is not None:
+            for idx, dev in enumerate(devices):
+                if dev.get("max_input_channels", 0) > 0 and dev.get("hostapi") == dsound_id and spec_str in dev["name"].lower():
+                    if is_rate_supported(idx):
+                        return idx
+        # Thử bất kỳ API nào khác
         for idx, dev in enumerate(devices):
             if dev.get("max_input_channels", 0) > 0 and spec_str in dev["name"].lower():
-                return idx
+                if is_rate_supported(idx):
+                    return idx
 
-    # 2. Không chỉ định: tìm mic mặc định qua WASAPI
+    # 2. Không chỉ định: tìm mic mặc định (ưu tiên WASAPI -> DirectSound -> MME)
     default_in = sd.default.device[0] if sd.default.device else None
-    if wasapi_id is not None and default_in is not None and default_in < len(devices):
+    if default_in is not None and default_in < len(devices):
         def_name = devices[default_in]["name"]
-        for idx, dev in enumerate(devices):
-            if dev.get("max_input_channels", 0) > 0 and dev.get("hostapi") == wasapi_id and dev["name"] == def_name:
-                return idx
+        # Ưu tiên WASAPI cùng tên nếu chạy được 16kHz
+        if wasapi_id is not None:
+            for idx, dev in enumerate(devices):
+                if dev.get("max_input_channels", 0) > 0 and dev.get("hostapi") == wasapi_id and dev["name"] == def_name:
+                    if is_rate_supported(idx):
+                        return idx
+        # Ưu tiên DirectSound cùng tên
+        if dsound_id is not None:
+            for idx, dev in enumerate(devices):
+                if dev.get("max_input_channels", 0) > 0 and dev.get("hostapi") == dsound_id and dev["name"] == def_name:
+                    if is_rate_supported(idx):
+                        return idx
+        # MME cùng tên
+        if mme_id is not None:
+            for idx, dev in enumerate(devices):
+                if dev.get("max_input_channels", 0) > 0 and dev.get("hostapi") == mme_id and dev["name"] == def_name:
+                    if is_rate_supported(idx):
+                        return idx
+        # Kiểm tra default_in gốc
+        if is_rate_supported(default_in):
+            return default_in
+
+    # 3. Fallback: tìm bất kỳ thiết bị input nào hỗ trợ 16kHz
+    for idx, dev in enumerate(devices):
+        if dev.get("max_input_channels", 0) > 0 and is_rate_supported(idx):
+            return idx
 
     return default_in
 
