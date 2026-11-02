@@ -38,14 +38,23 @@ from core.command_parser import parse_command
 _REAL_STDOUT = sys.stdout
 _IS_IPC_MODE = False
 
-_POS_NAME_MAP = {
-    1: "Mũi (A/K)",
-    2: "Hông ngoài (B)",
-    3: "Hông trong (D)",
-    4: "Lưỡi gà (F)",
-    5: "Gót (C)",
-    6: "Đế (E/G)"
+_POS_BASE_NAMES = {
+    1: "Mũi",
+    2: "Hông ngoài",
+    3: "Hông trong",
+    4: "Lưỡi gà",
+    5: "Gót",
+    6: "Đế"
 }
+
+
+def get_pos_label(pos_id: int, bold: bool = True) -> str:
+    """Trả về nhãn vị trí: Mũi (1) với số in đậm ANSI."""
+    name = _POS_BASE_NAMES.get(pos_id, f"Vị trí #{pos_id}")
+    if bold:
+        return f"{name} (\033[1m{pos_id}\033[0m)"
+    return f"{name} ({pos_id})"
+
 
 _DEFECT_SHORT_MAP = {
     1: "01 - Da xù / Sai liệu",
@@ -84,10 +93,10 @@ def _print_visual_command(text: str, cmd: dict | None, lat_ms: float = 0.0, conf
         if intent == "inspection":
             pos_id = cmd.get("position", 0)
             def_id = cmd.get("defect", 0)
-            pos_label = _POS_NAME_MAP.get(pos_id, f"Vị trí #{pos_id}")
+            pos_label = get_pos_label(pos_id, bold=True)
             def_label = _DEFECT_SHORT_MAP.get(def_id, f"Lỗi #{def_id:02d}")
             print(f"\n┌── 🎙️ [P211] NHẬN DIỆN THÀNH CÔNG: CHẤM LỖI QA " + "─" * 28 + "┐", flush=True)
-            print(f"│  📍 Vị trí : \033[96m{pos_label:<18}\033[0m  ⚠️ Lỗi: \033[93m{def_label:<32}\033[0m │", flush=True)
+            print(f"│  📍 Vị trí : \033[96m{pos_label:<26}\033[0m  ⚠️ Lỗi: \033[93m{def_label:<32}\033[0m │", flush=True)
             print(f"│  📝 Giọng  : \"\033[92m{text}\033[0m\"" + " " * max(1, 38 - len(text)) + f"{perf_str:<25} │", flush=True)
             print("└──" + "─" * 70 + "┘\n", flush=True)
 
@@ -104,10 +113,10 @@ def _print_visual_command(text: str, cmd: dict | None, lat_ms: float = 0.0, conf
         elif intent == "reins_fail":
             pos_id = cmd.get("position", 0)
             def_id = cmd.get("defect", 0)
-            pos_label = _POS_NAME_MAP.get(pos_id, f"Vị trí #{pos_id}")
+            pos_label = get_pos_label(pos_id, bold=True)
             def_label = _DEFECT_SHORT_MAP.get(def_id, f"Lỗi #{def_id:02d}")
             print(f"\n┌── 🔄 [P211] TÁI KIỂM: SỬA LẠI (RE-FAIL) " + "─" * 30 + "┐", flush=True)
-            print(f"│  📍 Vị trí : \033[96m{pos_label:<18}\033[0m  ⚠️ Lỗi: \033[93m{def_label:<32}\033[0m │", flush=True)
+            print(f"│  📍 Vị trí : \033[96m{pos_label:<26}\033[0m  ⚠️ Lỗi: \033[93m{def_label:<32}\033[0m │", flush=True)
             print(f"│  📝 Giọng  : \"\033[92m{text}\033[0m\"" + " " * max(1, 38 - len(text)) + f"{perf_str:<25} │", flush=True)
             print("└──" + "─" * 70 + "┘\n", flush=True)
 
@@ -125,8 +134,8 @@ def _print_visual_command(text: str, cmd: dict | None, lat_ms: float = 0.0, conf
 
         elif intent == "position":
             pos_id = cmd.get("position", 0)
-            pos_label = _POS_NAME_MAP.get(pos_id, f"Vị trí #{pos_id}")
-            print(f"\n┌── 📍 [P211] CHỌN VỊ TRÍ: {pos_label} " + "─" * max(1, 42 - len(pos_label)) + "┐", flush=True)
+            pos_label = get_pos_label(pos_id, bold=True)
+            print(f"\n┌── 📍 [P211] CHỌN VỊ TRÍ: {pos_label} " + "─" * max(1, 50 - len(pos_label)) + "┐", flush=True)
             print(f"│  📝 Giọng  : \"\033[96m{text}\033[0m\" (Chờ đọc số lỗi...)" + " " * max(1, 18 - len(text)) + f"{perf_str:<20} │", flush=True)
             print("└──" + "─" * 70 + "┘\n", flush=True)
 
@@ -184,7 +193,13 @@ def resolve_audio_device(device_spec, sd):
     return default_in
 
 
-def run_engine(ipc_mode: bool = False, device_spec=None, noise_gate: int = 180, enable_shadow: bool = True):
+def run_engine(ipc_mode: bool = False, device_spec=None, noise_gate: int = 180, wav_mode: str = "matched_only"):
+    """
+    wav_mode:
+      - 'matched_only': Chỉ lưu file .wav cho các câu lệnh QA hợp lệ (tiết kiệm ổ cứng).
+      - 'all': Lưu toàn bộ mọi đoạn âm thanh được nhận diện.
+      - 'none': Không lưu file .wav nào.
+    """
     global _IS_IPC_MODE, _REAL_STDOUT
     _IS_IPC_MODE = ipc_mode
 
@@ -196,7 +211,7 @@ def run_engine(ipc_mode: bool = False, device_spec=None, noise_gate: int = 180, 
         print("=" * 72)
         print("  VOICE ENGINE HEADLESS (PhoWhisper CT2 INT8 + Silero VAD)")
         print(f"  Chế độ: {'IPC PIPE (cho NetTMC)' if _IS_IPC_MODE else 'CONSOLE TEST'}")
-        print(f"  Shadow Mode: {'BẬT (Ghi .wav & audit JSONL)' if enable_shadow else 'TẮT'}")
+        print(f"  Chế độ ghi âm (.wav): {wav_mode.upper()}")
         print("=" * 72)
 
     try:
@@ -208,11 +223,12 @@ def run_engine(ipc_mode: bool = False, device_spec=None, noise_gate: int = 180, 
             emit_ipc_event({"event": "error", "message": err})
         return
 
-    # Khởi tạo thư mục shadow logs nếu bật
+    # Khởi tạo thư mục shadow logs
     shadow_wav_dir = os.path.join(Config.LOGS_DIR, "shadow_wav")
     shadow_audit_file = os.path.join(Config.LOGS_DIR, "shadow_audit.jsonl")
-    if enable_shadow:
+    if wav_mode != "none":
         os.makedirs(shadow_wav_dir, exist_ok=True)
+    os.makedirs(Config.LOGS_DIR, exist_ok=True)
 
     # Khởi tạo DSP Audio Preprocessor
     preprocessor = AudioPreprocessor(
@@ -377,10 +393,17 @@ def run_engine(ipc_mode: bool = False, device_spec=None, noise_gate: int = 180, 
 
             # Phân tích câu lệnh QA
             cmd = parse_command(text)
+            is_valid_cmd = (cmd is not None)
 
-            # Ghi âm Shadowing (nếu bật)
+            # Xác định có ghi file .wav hay không theo wav_mode
+            should_save_wav = False
+            if wav_mode == "all":
+                should_save_wav = True
+            elif wav_mode == "matched_only" and is_valid_cmd:
+                should_save_wav = True
+
             wav_filename = ""
-            if enable_shadow:
+            if should_save_wav:
                 try:
                     ts_str = time.strftime("%Y%m%d_%H%M%S")
                     ms_val = int((time.time() % 1) * 1000)
@@ -393,23 +416,28 @@ def run_engine(ipc_mode: bool = False, device_spec=None, noise_gate: int = 180, 
                         wf.setsampwidth(2)
                         wf.setframerate(Config.SAMPLE_RATE)
                         wf.writeframes(pcm_16)
-
-                    # Ghi audit JSONL
-                    audit_record = {
-                        "timestamp": time.time(),
-                        "time_str": ts_str,
-                        "wav_file": wav_filename,
-                        "raw_whisper": raw_text,
-                        "norm_text": text,
-                        "conf": round(conf, 4),
-                        "latency_ms": round(lat_ms, 1),
-                        "intent": cmd.get("intent") if cmd else None,
-                        "cmd": cmd
-                    }
-                    with open(shadow_audit_file, "a", encoding="utf-8") as f:
-                        f.write(json.dumps(audit_record, ensure_ascii=False) + "\n")
                 except Exception:
-                    pass
+                    wav_filename = ""
+
+            # LUÔN LUÔN ghi nhật ký JSON đầy đủ (bất kể lệnh đúng hay không)
+            try:
+                ts_str = time.strftime("%Y-%m-%d %H:%M:%S")
+                audit_record = {
+                    "timestamp": time.time(),
+                    "time_str": ts_str,
+                    "wav_file": wav_filename if wav_filename else None,
+                    "raw_whisper": raw_text,
+                    "norm_text": text,
+                    "conf": round(conf, 4),
+                    "latency_ms": round(lat_ms, 1),
+                    "intent": cmd.get("intent") if cmd else None,
+                    "cmd": cmd,
+                    "status": "VALID_COMMAND" if is_valid_cmd else "UNMATCHED"
+                }
+                with open(shadow_audit_file, "a", encoding="utf-8") as f:
+                    f.write(json.dumps(audit_record, ensure_ascii=False) + "\n")
+            except Exception:
+                pass
 
             # Xử lý output
             if _IS_IPC_MODE:
@@ -420,7 +448,7 @@ def run_engine(ipc_mode: bool = False, device_spec=None, noise_gate: int = 180, 
                     "conf": round(conf, 4),
                     "latency_ms": round(lat_ms, 1),
                 })
-                if cmd is not None:
+                if is_valid_cmd:
                     emit_ipc_event({
                         "event": "command",
                         "cmd": cmd,
@@ -445,12 +473,18 @@ if __name__ == "__main__":
     parser.add_argument("--ipc", action="store_true", help="Chạy ở chế độ IPC Pipe (gửi NDJSON qua stdout)")
     parser.add_argument("--device", type=str, default=None, help="Chỉ định Microphone (index hoặc tên thiết bị)")
     parser.add_argument("--gate", type=int, default=180, help="Ngưỡng phát hiện âm thanh Noise Gate RMS (mặc định 180)")
-    parser.add_argument("--no-shadow", action="store_true", help="Tắt ghi file âm thanh shadowing và audit JSONL")
+    parser.add_argument(
+        "--wav-mode",
+        type=str,
+        default="matched_only",
+        choices=["matched_only", "all", "none"],
+        help="Chế độ lưu file .wav: 'matched_only' (chỉ lệnh đúng), 'all' (tất cả), 'none' (không lưu)"
+    )
     args = parser.parse_args()
 
     run_engine(
         ipc_mode=args.ipc,
         device_spec=args.device,
         noise_gate=args.gate,
-        enable_shadow=(not args.no_shadow)
+        wav_mode=args.wav_mode
     )
