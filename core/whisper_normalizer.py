@@ -59,7 +59,7 @@ def normalize_whisper_text(text: str) -> str:
     # Ví dụ: "ba mươi ba" -> "ba mười ba" (Lỗi 13), "ba mươi lăm" -> "ba mười lăm" (Lỗi 15),
     #        "ba mươi sáu" -> "ba mười sáu" (Lỗi 16), "ba mươi bảy" -> "ba mười bảy" (Lỗi 17),
     #        "bốn mươi" -> "bốn mười" (Lỗi 10).
-    t = re.sub(r"\b([1-6]|một|hai|ba|bốn|tư|năm|sáu)\s+mươi\b", r"\1 mười", t)
+    t = re.sub(r"\b([1-6]|một|ba|bốn|tư|năm|sáu)\s+mươi\b", r"\1 mười", t)
     t = re.sub(r"\bmười\s+mốt\b", "mười một", t)
     t = re.sub(r"\b(một|hai|ba|bốn|tư|năm|sáu)\s+mốt\b", r"\1 một", t)
 
