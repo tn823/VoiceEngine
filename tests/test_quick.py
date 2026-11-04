@@ -2,8 +2,12 @@
 """
 Script kiểm thử nhanh các thành phần của VoiceEngine
 """
+import os
 import sys
 import numpy as np
+
+# Đảm bảo import được module 'core' bất kể chạy từ thư mục gốc hay thư mục tests/
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 if sys.stdout and hasattr(sys.stdout, "reconfigure"):
     try:

@@ -3,6 +3,7 @@
 > **Ultra-Low Latency, Headless Vietnamese Speech Recognition Engine for Industrial Quality Inspection**
 
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
+[![Version: 1.2.0](https://img.shields.io/badge/version-1.2.0-brightgreen.svg)](CHANGELOG.md)
 [![Hugging Face Model](https://img.shields.io/badge/%F0%9F%A4%97%20Hugging%20Face-ntn823%2Fphowhisper--tiny--cuchi--int8-yellow)](https://huggingface.co/ntn823/phowhisper-tiny-cuchi-int8)
 [![Inference Engine](https://img.shields.io/badge/Inference-CTranslate2%20INT8-orange.svg)](https://github.com/OpenNMT/CTranslate2)
 [![VAD](https://img.shields.io/badge/VAD-Silero%20ONNX-blueviolet.svg)](https://github.com/snakers4/silero-vad)
@@ -121,6 +122,7 @@ usage: engine_headless.py [-h] [--ipc] [--device DEVICE] [--gate GATE]
 
 options:
   -h, --help            Show this help message and exit
+  -v, --version         Show VoiceEngine version and exit
   --ipc                 Enable IPC Pipe mode (transmits NDJSON via stdout)
   --device DEVICE       Audio device name or index (defaults to system WASAPI input)
   --gate GATE           Audio Energy Gate RMS threshold (default: 180)
@@ -180,22 +182,22 @@ options:
 
 ## 🧪 Comprehensive Verification Suite
 
-Execute the automated test suite covering **54 industry verification scenarios**:
+Execute the automated test suite covering **136 industry verification scenarios**:
 
 ```bash
-python test_all_cases.py
+python tests/test_all_cases.py
 ```
 
 Standard benchmark output:
 ```text
 =====================================================================================
-SUMMARY: 54/54 PASS (100.0%), 0 FAIL
+SUMMARY: 136/136 PASS (100.0%), 0 FAIL
 =====================================================================================
 ```
 
 Perform end-to-end DSP, VAD, and model inference verification:
 ```bash
-python test_quick.py
+python tests/test_quick.py
 ```
 
 ---
@@ -206,20 +208,29 @@ python test_quick.py
 VoiceEngine/
 ├── .gitignore                   # Excludes logs, audio cache, and local secrets
 ├── README.md                    # Engineering documentation and technical specs
+├── CHANGELOG.md                 # Semantic version changelog & release history
 ├── requirements.txt             # Lightweight runtime dependencies
 ├── config.py                    # Audio DSP and model configurations
 ├── engine_headless.py           # Core entry point (Console Test & IPC Pipe)
-├── test_all_cases.py            # Comprehensive 54-case verification suite
-├── test_quick.py                # Quick verification for ASR, DSP, and VAD
 ├── core/
 │   ├── __init__.py
+│   ├── __version__.py           # Single source of truth for versioning (SemVer)
 │   ├── phowhisper_engine.py     # CTranslate2 INT8 PhoWhisper inference core
 │   ├── audio_preprocessor.py    # DSP filters & pure ONNX Silero VAD
 │   ├── whisper_normalizer.py    # Vietnamese numeric & dialect normalizer
 │   └── command_parser.py        # Industrial QA intent & grammar parser
-└── models/
-    ├── phowhisper-tiny-ct2-int8/ # Quantized INT8 PhoWhisper model weights
-    └── silero_vad.onnx           # Silero neural VAD ONNX model
+├── models/
+│   ├── phowhisper-tiny-ct2-int8/ # Quantized INT8 PhoWhisper model weights
+│   └── silero_vad.onnx           # Silero neural VAD ONNX model
+├── tests/
+│   ├── test_all_cases.py        # Comprehensive 136-case verification suite
+│   └── test_quick.py            # Quick verification for ASR, DSP, and VAD
+├── tools/
+│   ├── bump_version.py          # Automated SemVer release & git tagging tool
+│   └── generate_pdf_guide.py    # Script generating Voice Command Cheat Sheet PDF
+├── docs/
+│   └── VoiceEngine_QA_Voice_Command_Guide.pdf # Industrial QA voice guide (1-page A4)
+└── logs/                        # Audio shadowing and shadow audit records
 ```
 
 ---

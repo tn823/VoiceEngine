@@ -5,6 +5,7 @@ Tối giản, chuyên dụng cho nhận diện giọng nói QA công nghiệp
 """
 import os
 import sys
+from core.__version__ import __version__
 
 def get_base_dir():
     if getattr(sys, "frozen", False):
@@ -19,6 +20,7 @@ def resource_path(relative_path):
     return os.path.join(base_path, relative_path)
 
 class Config:
+    VERSION = __version__
     BASE_DIR = get_base_dir()
     MODELS_DIR = os.path.join(BASE_DIR, "models")
     LOGS_DIR = os.path.join(BASE_DIR, "logs")

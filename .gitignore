@@ -50,3 +50,4 @@ shadow_wav/
 *.jsonl
 *.log
 .cache/
+doc/

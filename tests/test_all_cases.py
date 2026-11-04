@@ -8,7 +8,11 @@ Chỉ tập trung đúng 5 nhóm nghiệp vụ:
 4. LỖI LẠI / SỬA LẠI (Đơn lẻ & Đọc lỗi lại Số - Số: Vị trí 1..6 + Mã lỗi 1..24 + Sửa/Lỗi lại)
 5. Khử toàn bộ lỗi Whisper thực tế từ mic người dùng (mươi -> mười, trăm -> chấm, mỗi/mòn -> một, oa -> ba, tháng -> tám, sáng -> sáu...)
 """
+import os
 import sys
+
+# Đảm bảo import được module 'core' bất kể chạy từ thư mục gốc hay thư mục tests/
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 if sys.stdout and hasattr(sys.stdout, "reconfigure"):
     try:
@@ -42,10 +46,21 @@ TEST_SUITE = [
     # =========================================================================
     ("đạt lại", "reins_pass", {}, "Đạt lại chuẩn"),
     ("đại lại", "reins_pass", {}, "Biến âm đại lại"),
+    ("ok lại", "reins_pass", {}, "OK lại"),
+    ("ô kê lại", "reins_pass", {}, "Ô kê lại"),
+    ("oke lại", "reins_pass", {}, "Oke lại"),
+    ("pass lại", "reins_pass", {}, "Pass lại"),
+    ("re-ins pass", "reins_pass", {}, "Khẩu lệnh tiếng Anh: re-ins pass"),
+    ("reins pass", "reins_pass", {}, "Khẩu lệnh re-ins pass viết liền"),
+    ("rì bát", "reins_pass", {}, "Khẩu lệnh phiên âm Việt: rì bát"),
+    ("ri bát", "reins_pass", {}, "Biến âm: ri bát"),
+    ("rì pass", "reins_pass", {}, "Biến âm: rì pass"),
     ("sửa đạt", "reins_pass", {}, "Sửa đạt chuẩn"),
     ("sửa ok", "reins_pass", {}, "Sửa ok"),
     ("sửa ô kê", "reins_pass", {}, "Sửa ô kê"),
     ("sửa tốt", "reins_pass", {}, "Sửa tốt"),
+    ("đạt sửa", "reins_pass", {}, "Nói ngược: Đạt sửa"),
+    ("ok sửa", "reins_pass", {}, "Nói ngược: OK sửa"),
     # Biến âm thực tế từ log mic của user
     ("đang lai.", "reins_pass", {}, "Log mic: 'đang lai.' -> đạt lại"),
     ("sửa đạn.", "reins_pass", {}, "Log mic: 'sửa đạn.' -> sửa đạt"),
@@ -155,6 +170,8 @@ TEST_SUITE = [
     ("lối một mươi bảy.", "inspection", {"position": 1, "defect": 17, "result": "fail"}, "Log mic: 'lối một mươi bảy.' -> Lỗi 1.17"),
     ("gói hai mười tám.", "inspection", {"position": 2, "defect": 18, "result": "fail"}, "Log mic: 'gói hai mười tám.' -> Lỗi 2.18"),
     ("nội ba mười bảy.", "inspection", {"position": 3, "defect": 17, "result": "fail"}, "Log mic: 'nội ba mười bảy.' -> Lỗi 3.17"),
+    ("nói một một.", "inspection", {"position": 1, "defect": 1, "result": "fail"}, "Chọt lệnh kèm từ dẫn: 'nói một một.' -> 1.1"),
+    ("bày vọng chuyện đi hai hai.", "inspection", {"position": 2, "defect": 2, "result": "fail"}, "Chọt lệnh ở cuối câu trò chuyện: '... đi hai hai.' -> 2.2"),
 
     # =========================================================================
     # 5. ĐỌC LỖI LẠI / SỬA LẠI KÈM SỐ - SỐ (RE-FAIL)
@@ -167,6 +184,10 @@ TEST_SUITE = [
     ("ba mươi bảy lỗi lại", "reins_fail", {"position": 3, "defect": 17}, "3.17 lỗi lại"),
     ("lỗi lại một mười bảy", "reins_fail", {"position": 1, "defect": 17}, "Lỗi lại 1.17"),
     ("sửa lại hai mươi tám", "reins_fail", {"position": 2, "defect": 18}, "Sửa lại 2.18"),
+    ("một một lại", "reins_fail", {"position": 1, "defect": 1}, "Số-Số-Lại: 1.1 lại"),
+    ("một mười bảy lại", "reins_fail", {"position": 1, "defect": 17}, "Số-Số-Lại: 1.17 lại"),
+    ("hai mười hai lại", "reins_fail", {"position": 2, "defect": 12}, "Số-Số-Lại: 2.12 lại"),
+    ("sáu hai mươi tư lại", "reins_fail", {"position": 6, "defect": 24}, "Số-Số-Lại: 6.24 lại"),
 
     # =========================================================================
     # 6. LỆNH HỦY & LỌC ẢO GIÁC / VƯỢT NGƯỠNG

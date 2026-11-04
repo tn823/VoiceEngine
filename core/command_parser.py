@@ -46,7 +46,10 @@ _PASS_WORDS = {
 
 _REINS_PASS_EXACT = {
     "đạt lại", "đại lại", "sửa đạt", "sửa tốt", "sửa ok", "sửa ô kê",
-    "sửa oke", "sửa được", "sửa xong", "tốt lại", "ok lại", "ô kê lại", "reins pass"
+    "sửa oke", "sửa được", "sửa xong", "tốt lại", "ok lại", "ô kê lại", "oke lại",
+    "pass lại", "đạt sửa", "ok sửa", "ô kê sửa", "oke sửa", "pass sửa", "sửa pass",
+    "reins pass", "re-ins pass", "re ins pass", "rì bát", "ri bát", "re pass", "riu bắp",
+    "tái kiểm pass", "tái kiểm đạt"
 }
 
 _FAIL_STANDALONE = {
@@ -92,16 +95,23 @@ def _parse_number_pair(text: str) -> dict | None:
     Phân tích cặp Số - Số: [Vị trí (1..6)] + [Mã lỗi (1..24)]
     Hỗ trợ đi kèm từ khóa 'lỗi', 'lỗi lại', 'sửa', 'sửa lại', 'đạt lại', 'sửa đạt'.
     """
-    has_reins_pass = any(k in text for k in ("đạt lại", "đại lại", "sửa đạt", "sửa tốt", "sửa ok", "sửa ô kê", "sửa xong", "tốt lại"))
+    has_reins_pass = any(k in text for k in (
+        "đạt lại", "đại lại", "sửa đạt", "sửa tốt", "sửa ok", "sửa ô kê", "sửa xong",
+        "tốt lại", "ok lại", "ô kê lại", "oke lại", "pass lại", "đạt sửa", "ok sửa",
+        "ô kê sửa", "oke sửa", "reins pass", "re-ins pass", "re ins pass", "rì bát",
+        "ri bát", "re pass", "riu bắp", "tái kiểm pass", "tái kiểm đạt"
+    ))
     has_sua = (not has_reins_pass) and (
         any(k in text for k in ("lỗi lại", "sửa lại", "sửa lỗi", "tái kiểm"))
-        or any(w in text.split() for w in ("sửa", "sữa", "xửa", "xữa"))
+        or any(w in text.split() for w in ("sửa", "sữa", "xửa", "xữa", "lại"))
     )
     has_tot = (not has_reins_pass) and any(w in text.split() for w in ("đạt", "pass", "ok", "tốt"))
 
     clean = text
     # Loại bỏ các cụm từ khóa nghiệp vụ để lấy phần số thuần túy
     phrases_to_strip = [
+        "reins pass", "re-ins pass", "re ins pass", "rì bát", "ri bát", "re pass", "riu bắp",
+        "tái kiểm pass", "tái kiểm đạt",
         "lỗi lại", "lổi lại", "nỗi lại", "sửa lại", "sửa lỗi", "tái kiểm",
         "đạt lại", "đại lại", "sửa đạt", "sửa tốt", "sửa ô kê", "sửa ok",
         "vị trí", "mã lỗi", "báo lỗi", "hàng lỗi", "ô kê",
@@ -132,19 +142,33 @@ def _parse_number_pair(text: str) -> dict | None:
             return None
 
     # TRƯỜNG HỢP 2: Đọc liền Số - Số (VD: "một một", "hai mười tám", "ba mười bảy", "năm hai mươi mốt")
-    # Vì Vị trí 1..6 trong tiếng Việt ("một", "hai", "ba", "bốn", "năm", "sáu") LUÔN là 1 từ đơn:
-    # Từ đầu tiên (words[0]) bắt buộc là Vị trí (1..6), phần còn lại (words[1:]) bắt buộc là Mã lỗi (1..24).
+    # Hoặc người nói chọt cặp số vào cuối câu trò chuyện (VD: "nói một một", "bày vọng chuyện đi hai hai")
     if pos is None or dfct is None:
         words = clean.split()
         if len(words) >= 2:
+            # 1. Thử khớp chuẩn từ đầu câu
             s1 = words[0]
             s2 = " ".join(words[1:])
 
             n1 = _to_int(s1)
             n2 = _to_int(s2)
 
-            if n1 is not None and n2 is not None and 1 <= n1 <= 6 and 1 <= n2 <= 24:
-                pos, dfct = n1, n2
+            if n1 is not None and 1 <= n1 <= 6:
+                if n2 is not None and 1 <= n2 <= 24:
+                    pos, dfct = n1, n2
+                # Nếu từ đầu đã là vị trí 1..6 nhưng mã lỗi vượt ngưỡng (VD: "sáu hai mươi tám") -> Bỏ qua, không mò đuôi
+            else:
+                # 2. Nếu từ đầu không phải vị trí (nói chuyện phiếm, có từ đệm ở đầu: "nói", "bày chuyện đi", v.v.)
+                # Quét tìm cặp [Vị trí 1..6] + [Mã lỗi 1..24] ở cuối câu
+                for d_len in (3, 2, 1):
+                    if len(words) >= 1 + d_len:
+                        p_str = words[-(1 + d_len)]
+                        d_str = " ".join(words[-d_len:])
+                        p_val = _to_int(p_str)
+                        d_val = _to_int(d_str)
+                        if p_val is not None and d_val is not None and 1 <= p_val <= 6 and 1 <= d_val <= 24:
+                            pos, dfct = p_val, d_val
+                            break
 
     if pos is not None and dfct is not None:
         if has_reins_pass or (has_sua and has_tot):
@@ -166,7 +190,7 @@ def parse_command(text: str) -> dict | None:
     if not text:
         return None
 
-    if len(text.split()) > 8:
+    if len(text.split()) > 10:
         return None
 
     # 1. Lệnh HỦY / QUAY LẠI

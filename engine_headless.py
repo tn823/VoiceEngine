@@ -367,11 +367,12 @@ def run_engine(ipc_mode: bool = False, device_spec=None, noise_gate: int = 180, 
         return
 
     if not _IS_IPC_MODE:
-        print("\n🚀 [READY] VoiceEngine đã sẵn sàng! Mời bạn đọc lệnh (Đạt, Đạt lại, Lỗi, Lỗi lại, Số - Số: 1.17, 2.18, 3.17...):")
+        print(f"\n🚀 [READY] VoiceEngine v{Config.VERSION} đã sẵn sàng! Mời bạn đọc lệnh (Đạt, Đạt lại, Lỗi, Lỗi lại, Số - Số: 1.17, 2.18, 3.17...):")
         print("   (Bấm Ctrl+C để thoát)\n")
     else:
         emit_ipc_event({
             "event": "ready",
+            "version": Config.VERSION,
             "device": dev_name,
             "sample_rate": Config.SAMPLE_RATE,
             "engine": "phowhisper-tiny-ct2-int8"
@@ -546,7 +547,13 @@ def run_engine(ipc_mode: bool = False, device_spec=None, noise_gate: int = 180, 
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="VoiceEngine Headless (PhoWhisper CT2 INT8 + Silero VAD)")
+    parser = argparse.ArgumentParser(description=f"VoiceEngine Headless v{Config.VERSION} (PhoWhisper CT2 INT8 + Silero VAD)")
+    parser.add_argument(
+        "-v", "--version",
+        action="version",
+        version=f"VoiceEngine v{Config.VERSION}",
+        help="Hiển thị phiên bản VoiceEngine"
+    )
     parser.add_argument("--ipc", action="store_true", help="Chạy ở chế độ IPC Pipe (gửi NDJSON qua stdout)")
     parser.add_argument("--device", type=str, default=None, help="Chỉ định Microphone (index hoặc tên thiết bị)")
     parser.add_argument("--gate", type=int, default=180, help="Ngưỡng phát hiện âm thanh Noise Gate RMS (mặc định 180)")
