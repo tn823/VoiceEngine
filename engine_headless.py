@@ -19,14 +19,15 @@ import argparse
 import numpy as np
 
 # Cấu hình UTF-8 cho stream
+os.environ["PYTHONIOENCODING"] = "utf-8"
 if sys.stdout and hasattr(sys.stdout, "reconfigure"):
     try:
-        sys.stdout.reconfigure(encoding="utf-8")
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
     except Exception:
         pass
 if sys.stderr and hasattr(sys.stderr, "reconfigure"):
     try:
-        sys.stderr.reconfigure(encoding="utf-8")
+        sys.stderr.reconfigure(encoding="utf-8", errors="replace")
     except Exception:
         pass
 
@@ -173,7 +174,7 @@ def resolve_audio_device(device_spec, sd, target_sr: int = Config.SAMPLE_RATE):
     """
     Xác định device index phù hợp từ chỉ định của người dùng hoặc tự động chọn.
     Tự động kiểm tra tính tương thích của sample rate (16000Hz).
-    Ưu tiên: WASAPI (nếu hỗ trợ 16kHz) -> DirectSound -> MME.
+    Trả về: (target_idx: int | None, err_code: str | None, err_msg: str | None)
     """
     devices = sd.query_devices()
     hostapis = sd.query_hostapis()
@@ -192,7 +193,7 @@ def resolve_audio_device(device_spec, sd, target_sr: int = Config.SAMPLE_RATE):
         except Exception:
             return False
 
-    # Xử lý khi người dùng truyền số (dạng int hoặc chuỗi số "1", "7")
+    # 1. Người dùng truyền device_spec dạng số nguyên (index)
     target_idx = None
     if isinstance(device_spec, int):
         target_idx = device_spec
@@ -200,70 +201,58 @@ def resolve_audio_device(device_spec, sd, target_sr: int = Config.SAMPLE_RATE):
         target_idx = int(device_spec.strip())
 
     if target_idx is not None:
-        if is_rate_supported(target_idx):
-            return target_idx
-        # Nếu index chỉ định không hỗ trợ 16kHz (ví dụ WASAPI Realtek), tự động tìm phiên bản DirectSound/MME của thiết bị đó
         if 0 <= target_idx < len(devices):
-            dev_name = devices[target_idx]["name"]
-            for idx, dev in enumerate(devices):
-                if dev.get("max_input_channels", 0) > 0 and dev["name"] == dev_name and is_rate_supported(idx):
-                    return idx
-        return target_idx
+            if is_rate_supported(target_idx):
+                return target_idx, None, None
+            dev_name = devices[target_idx].get("name", str(target_idx))
+            return None, "unsupported_sample_rate", f"Thiết bị index {target_idx} ('{dev_name}') không hỗ trợ tần số {target_sr}Hz."
+        return None, "device_not_found", f"Device index {target_idx} nằm ngoài danh sách thiết bị ({len(devices)} devices)."
 
-    spec_str = str(device_spec).strip().lower() if device_spec else ""
+    spec_str = str(device_spec).strip() if device_spec else ""
+    if not spec_str:
+        if _IS_IPC_MODE:
+            # Trong IPC mode: không chỉ định mic là lỗi, cấm tuyệt đối fallback mic mặc định
+            return None, "missing_device_spec", "Chế độ IPC bắt buộc phải chỉ định tên thiết bị Microphone (--device)."
+        default_in = sd.default.device[0] if sd.default.device else None
+        if default_in is not None and is_rate_supported(default_in):
+            return default_in, None, None
+        return None, "device_not_found", "Không tìm thấy Microphone mặc định hỗ trợ 16kHz của Windows."
 
-    # 1. Nếu có tên thiết bị chỉ định (vd: 'realtek', 'redmi', 'usb'):
-    if spec_str:
-        # Thử WASAPI trước nếu hỗ trợ 16kHz
-        if wasapi_id is not None:
-            for idx, dev in enumerate(devices):
-                if dev.get("max_input_channels", 0) > 0 and dev.get("hostapi") == wasapi_id and spec_str in dev["name"].lower():
-                    if is_rate_supported(idx):
-                        return idx
-        # Thử DirectSound
-        if dsound_id is not None:
-            for idx, dev in enumerate(devices):
-                if dev.get("max_input_channels", 0) > 0 and dev.get("hostapi") == dsound_id and spec_str in dev["name"].lower():
-                    if is_rate_supported(idx):
-                        return idx
-        # Thử bất kỳ API nào khác
+    spec_lower = spec_str.lower()
+
+    # 2. Khớp tên thiết bị trên WASAPI:
+    if wasapi_id is not None:
+        matched_indices = []
         for idx, dev in enumerate(devices):
-            if dev.get("max_input_channels", 0) > 0 and spec_str in dev["name"].lower():
-                if is_rate_supported(idx):
-                    return idx
+            if dev.get("max_input_channels", 0) > 0 and dev.get("hostapi") == wasapi_id:
+                name_lower = dev["name"].strip().lower()
+                # Khớp chính xác hoặc khớp có hậu tố: spec + " (" (ví dụ: Mic_Tram_A (Realtek Audio))
+                if name_lower == spec_lower or name_lower.startswith(spec_lower + " ("):
+                    matched_indices.append(idx)
 
-    # 2. Không chỉ định: tìm mic mặc định (ưu tiên WASAPI -> DirectSound -> MME)
-    default_in = sd.default.device[0] if sd.default.device else None
-    if default_in is not None and default_in < len(devices):
-        def_name = devices[default_in]["name"]
-        # Ưu tiên WASAPI cùng tên nếu chạy được 16kHz
-        if wasapi_id is not None:
-            for idx, dev in enumerate(devices):
-                if dev.get("max_input_channels", 0) > 0 and dev.get("hostapi") == wasapi_id and dev["name"] == def_name:
-                    if is_rate_supported(idx):
-                        return idx
-        # Ưu tiên DirectSound cùng tên
-        if dsound_id is not None:
-            for idx, dev in enumerate(devices):
-                if dev.get("max_input_channels", 0) > 0 and dev.get("hostapi") == dsound_id and dev["name"] == def_name:
-                    if is_rate_supported(idx):
-                        return idx
-        # MME cùng tên
-        if mme_id is not None:
-            for idx, dev in enumerate(devices):
-                if dev.get("max_input_channels", 0) > 0 and dev.get("hostapi") == mme_id and dev["name"] == def_name:
-                    if is_rate_supported(idx):
-                        return idx
-        # Kiểm tra default_in gốc
-        if is_rate_supported(default_in):
-            return default_in
+        # Trùng tên
+        if len(matched_indices) > 1:
+            return None, "ambiguous_device_name", f"Phát hiện {len(matched_indices)} thiết bị trùng tên '{spec_str}' trên WASAPI."
 
-    # 3. Fallback: tìm bất kỳ thiết bị input nào hỗ trợ 16kHz
+        # Khớp đúng 1 thiết bị: kiểm tra sample rate riêng biệt để lỗi rõ ràng
+        if len(matched_indices) == 1:
+            idx = matched_indices[0]
+            if is_rate_supported(idx):
+                return idx, None, None
+            matched_name = devices[idx].get("name", spec_str)
+            return None, "unsupported_sample_rate", f"Microphone '{matched_name}' không hỗ trợ tần số {target_sr}Hz trên WASAPI."
+
+    # Trong chế độ IPC: không tìm thấy WASAPI khớp là lỗi ngay, cấm fallback sang DirectSound/MME
+    if _IS_IPC_MODE:
+        return None, "device_not_found", f"Không tìm thấy thiết bị Microphone WASAPI khớp với tên: '{spec_str}'"
+
+    # 3. Fallback chỉ dành cho Console Test Mode (DirectSound -> MME)
     for idx, dev in enumerate(devices):
-        if dev.get("max_input_channels", 0) > 0 and is_rate_supported(idx):
-            return idx
+        if dev.get("max_input_channels", 0) > 0 and spec_lower in dev["name"].lower():
+            if is_rate_supported(idx):
+                return idx, None, None
 
-    return default_in
+    return None, "device_not_found", f"Không tìm thấy Microphone phù hợp với '{spec_str}'."
 
 
 def run_engine(ipc_mode: bool = False, device_spec=None, noise_gate: int = 180, wav_mode: str = "matched_only"):
@@ -332,14 +321,21 @@ def run_engine(ipc_mode: bool = False, device_spec=None, noise_gate: int = 180, 
         return
 
     # Microphone
-    target_device = resolve_audio_device(device_spec, sd)
+    target_device, err_code, err_msg = resolve_audio_device(device_spec, sd)
+    if target_device is None:
+        err = err_msg or f"Không tìm thấy hoặc không chỉ định thiết bị Microphone hợp lệ (device='{device_spec}')"
+        print(f"[FATAL] {err}")
+        if _IS_IPC_MODE:
+            emit_ipc_event({"event": "error", "code": err_code or "device_not_found", "message": err})
+            sys.exit(2)
+        return
+
     dev_name = "Default"
-    if target_device is not None:
-        try:
-            info = sd.query_devices(target_device)
-            dev_name = info.get("name", str(target_device))
-        except Exception:
-            dev_name = str(target_device)
+    try:
+        info = sd.query_devices(target_device)
+        dev_name = info.get("name", str(target_device))
+    except Exception:
+        dev_name = str(target_device)
 
     if not _IS_IPC_MODE:
         print(f"[MIC] Thiết bị đang dùng: Index={target_device} ('{dev_name}')")
@@ -399,10 +395,27 @@ def run_engine(ipc_mode: bool = False, device_spec=None, noise_gate: int = 180, 
     signal.signal(signal.SIGINT, sig_handler)
     signal.signal(signal.SIGTERM, sig_handler)
 
+    last_chunk_time = time.monotonic()
+    last_heartbeat_time = 0.0
+
     while running:
         try:
             raw_data = audio_queue.get(timeout=0.1)
+            last_chunk_time = time.monotonic()
         except queue.Empty:
+            raw_data = None
+
+        now = time.monotonic()
+        if _IS_IPC_MODE and (now - last_heartbeat_time >= 1.5):
+            emit_ipc_event({
+                "event": "heartbeat",
+                "audio_age": round(now - last_chunk_time, 2),
+                "stream_active": bool(stream and stream.active),
+                "speaking": is_speaking
+            })
+            last_heartbeat_time = now
+
+        if raw_data is None:
             continue
 
         proc_data, rms = preprocessor.process_chunk(raw_data)
