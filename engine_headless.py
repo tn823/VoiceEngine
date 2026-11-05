@@ -321,10 +321,11 @@ def prompt_select_device(sd) -> str | None:
 def resolve_audio_device(device_spec, sd, target_sr: int = Config.SAMPLE_RATE):
     """
     Xác định device index phù hợp từ chỉ định của người dùng hoặc tự động chọn.
-    Tự động kiểm tra tính tương thích của sample rate:
-      - Ưu tiên chạy trực tiếp ở target_sr (16000Hz).
-      - Nếu phần cứng WASAPI chỉ hỗ trợ tần số native (vd: 48000Hz/44100Hz), tự động nhận diện
-        để tầng audio_callback thực hiện resample về 16000Hz.
+    Hỗ trợ:
+      - Khớp tên đầy đủ hoặc từ khóa (substring/alias, vd: 'BY-V', 'Realtek', 'USB').
+      - Số thứ tự WASAPI (1, 2...).
+      - Tự động gán microphone WASAPI rảnh tiếp theo nếu không chỉ định thiết bị (--device để trống).
+      - Tự động nhận diện native sample rate (48000Hz/44100Hz) để resample về 16000Hz.
     Trả về: (target_idx: int | None, stream_sr: int, stream_channels: int, err_code: str | None, err_msg: str | None)
     """
     devices = sd.query_devices()
@@ -362,64 +363,89 @@ def resolve_audio_device(device_spec, sd, target_sr: int = Config.SAMPLE_RATE):
 
         return False, target_sr, 1
 
-    # 1. Người dùng truyền device_spec dạng số nguyên (index)
-    target_idx = None
-    if isinstance(device_spec, int):
-        target_idx = device_spec
-    elif isinstance(device_spec, str) and device_spec.strip().isdigit():
-        target_idx = int(device_spec.strip())
+    # Thu thập danh sách các Microphone WASAPI hợp lệ trên máy
+    wasapi_mics = []
+    if wasapi_id is not None:
+        seen_names = set()
+        for idx, dev in enumerate(devices):
+            if dev.get("hostapi") == wasapi_id and dev.get("max_input_channels", 0) > 0:
+                name = dev["name"].strip()
+                if name not in seen_names:
+                    seen_names.add(name)
+                    ok, actual_sr, actual_ch = check_device_capability(idx)
+                    if ok:
+                        wasapi_mics.append({"index": idx, "name": name, "sr": actual_sr, "channels": actual_ch})
 
-    if target_idx is not None:
-        if 0 <= target_idx < len(devices):
-            ok, actual_sr, actual_ch = check_device_capability(target_idx)
+    active_map = get_active_devices()
+
+    # 1. Trường hợp người dùng truyền số nguyên (hoặc chuỗi số "1", "2")
+    num_val = None
+    if isinstance(device_spec, int):
+        num_val = device_spec
+    elif isinstance(device_spec, str) and device_spec.strip().isdigit():
+        num_val = int(device_spec.strip())
+
+    if num_val is not None:
+        # Ưu tiên theo số thứ tự menu WASAPI (1-based: 1, 2...)
+        if 1 <= num_val <= len(wasapi_mics):
+            m = wasapi_mics[num_val - 1]
+            return m["index"], m["sr"], m["channels"], None, None
+        # Nếu không khớp menu 1-based, thử theo sounddevice raw index (0-based)
+        if 0 <= num_val < len(devices):
+            ok, actual_sr, actual_ch = check_device_capability(num_val)
             if ok:
-                return target_idx, actual_sr, actual_ch, None, None
-            dev_name = devices[target_idx].get("name", str(target_idx))
-            return None, target_sr, 1, "unsupported_device", f"Thiết bị index {target_idx} ('{dev_name}') không hỗ trợ ghi âm định dạng int16."
-        return None, target_sr, 1, "device_not_found", f"Device index {target_idx} nằm ngoài danh sách thiết bị ({len(devices)} devices)."
+                return num_val, actual_sr, actual_ch, None, None
+            dev_name = devices[num_val].get("name", str(num_val))
+            return None, target_sr, 1, "unsupported_device", f"Thiết bị index {num_val} ('{dev_name}') không hỗ trợ ghi âm định dạng int16."
+        return None, target_sr, 1, "device_not_found", f"Device index {num_val} nằm ngoài danh sách thiết bị ({len(devices)} devices)."
 
     spec_str = str(device_spec).strip() if device_spec else ""
+
+    # 2. Trường hợp KHÔNG chỉ định thiết bị (spec_str rỗng):
     if not spec_str:
-        if _IS_IPC_MODE:
-            # Trong IPC mode: không chỉ định mic là lỗi, cấm tuyệt đối fallback mic mặc định
-            return None, target_sr, 1, "missing_device_spec", "Chế độ IPC bắt buộc phải chỉ định tên thiết bị Microphone (--device)."
-        default_in = sd.default.device[0] if sd.default.device else None
-        if default_in is not None:
-            ok, actual_sr, actual_ch = check_device_capability(default_in)
-            if ok:
-                return default_in, actual_sr, actual_ch, None, None
-        return None, target_sr, 1, "device_not_found", "Không tìm thấy Microphone mặc định hợp lệ của Windows."
+        if not wasapi_mics:
+            return None, target_sr, 1, "device_not_found", "Không tìm thấy bất kỳ Microphone WASAPI hợp lệ nào trên máy tính."
+
+        # Ưu tiên chọn mic rảnh đầu tiên (không nằm trong active_map)
+        for m in wasapi_mics:
+            if m["name"] not in active_map:
+                return m["index"], m["sr"], m["channels"], None, None
+
+        # Nếu tất cả mic đều đã được đăng ký, fallback chọn mic đầu tiên
+        m = wasapi_mics[0]
+        return m["index"], m["sr"], m["channels"], None, None
 
     spec_lower = spec_str.lower()
 
-    # 2. Khớp tên thiết bị trên WASAPI:
-    if wasapi_id is not None:
-        matched_indices = []
-        for idx, dev in enumerate(devices):
-            if dev.get("max_input_channels", 0) > 0 and dev.get("hostapi") == wasapi_id:
-                name_lower = dev["name"].strip().lower()
-                # Khớp chính xác hoặc khớp có hậu tố: spec + " (" (ví dụ: Mic_Tram_A (Realtek Audio))
-                if name_lower == spec_lower or name_lower.startswith(spec_lower + " ("):
-                    matched_indices.append(idx)
+    # 3. Khớp tên thiết bị trên WASAPI (Hỗ trợ Substring / Alias):
+    if wasapi_mics:
+        # Khớp chính xác
+        exact = [m for m in wasapi_mics if m["name"].lower() == spec_lower]
+        if len(exact) == 1:
+            return exact[0]["index"], exact[0]["sr"], exact[0]["channels"], None, None
 
-        # Trùng tên
-        if len(matched_indices) > 1:
-            return None, target_sr, 1, "ambiguous_device_name", f"Phát hiện {len(matched_indices)} thiết bị trùng tên '{spec_str}' trên WASAPI."
+        # Khớp từ khóa trong tên (ví dụ "BY-V" trong "Microphone (BY-V)" hoặc "Realtek" trong "마이크 (Realtek(R) Audio)")
+        matched = [m for m in wasapi_mics if spec_lower in m["name"].lower()]
 
-        # Khớp đúng 1 thiết bị
-        if len(matched_indices) == 1:
-            idx = matched_indices[0]
-            ok, actual_sr, actual_ch = check_device_capability(idx)
-            if ok:
-                return idx, actual_sr, actual_ch, None, None
-            matched_name = devices[idx].get("name", spec_str)
-            return None, target_sr, 1, "unsupported_device", f"Microphone '{matched_name}' không hỗ trợ ghi âm định dạng int16 trên WASAPI."
+        if len(matched) == 1:
+            return matched[0]["index"], matched[0]["sr"], matched[0]["channels"], None, None
 
-    # Trong chế độ IPC: không tìm thấy WASAPI khớp là lỗi ngay, cấm fallback sang DirectSound/MME
+        if len(matched) > 1:
+            # Nếu có nhiều thiết bị cùng chứa từ khóa, ưu tiên thiết bị đang rảnh
+            free_matched = [m for m in matched if m["name"] not in active_map]
+            if len(free_matched) == 1:
+                return free_matched[0]["index"], free_matched[0]["sr"], free_matched[0]["channels"], None, None
+            if len(free_matched) > 1:
+                matched_names = ", ".join(f"'{m['name']}'" for m in free_matched)
+                return None, target_sr, 1, "ambiguous_device_name", f"Phát hiện nhiều Microphone rảnh cùng khớp với từ khóa '{spec_str}': {matched_names}."
+            matched_names = ", ".join(f"'{m['name']}'" for m in matched)
+            return None, target_sr, 1, "ambiguous_device_name", f"Phát hiện {len(matched)} thiết bị cùng khớp với từ khóa '{spec_str}': {matched_names}."
+
+    # Trong chế độ IPC: không tìm thấy WASAPI khớp là lỗi
     if _IS_IPC_MODE:
-        return None, target_sr, 1, "device_not_found", f"Không tìm thấy thiết bị Microphone WASAPI khớp với tên: '{spec_str}'"
+        return None, target_sr, 1, "device_not_found", f"Không tìm thấy thiết bị Microphone WASAPI khớp với từ khóa: '{spec_str}'"
 
-    # 3. Fallback chỉ dành cho Console Test Mode (DirectSound -> MME)
+    # 4. Fallback chỉ dành cho Console Test Mode (DirectSound -> MME)
     for idx, dev in enumerate(devices):
         if dev.get("max_input_channels", 0) > 0 and spec_lower in dev["name"].lower():
             ok, actual_sr, actual_ch = check_device_capability(idx)
