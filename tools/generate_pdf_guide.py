@@ -155,9 +155,9 @@ def build_pdf():
     # Hàng 4: Re-Pass
     table_data.append([
         Paragraph("<font color='#0284C7'><b>Re-Pass</b></font><br/><font color='#64748B' size='9'>(Tái kiểm đạt)</font>", style_col1),
-        Paragraph("<b>Đạt lại, OK lại</b><br/><b>re-ins pass</b> <i>('rì bát')</i><br/><i>(hoặc Sửa đạt, Sửa rồi)</i>", style_col2),
+        Paragraph("<b>Đạt lại, OK lại</b><br/><b>re pass / re-ins pass</b> <i>('rì bát')</i><br/><i>(hoặc Sửa đạt, Sửa rồi)</i>", style_col2),
         Paragraph(
-            "• <b>'Đạt lại'</b>, <b>'OK lại'</b>, <b>'re-ins pass'</b>, <b>'rì bát'</b><br/>"
+            "• <b>'Đạt lại'</b>, <b>'OK lại'</b>, <b>'re pass'</b>, <b>'re-ins pass'</b>, <b>'rì bát'</b><br/>"
             "• <b>'Pass lại'</b>, <b>'Sửa đạt'</b>, <b>'Sửa OK'</b>, <b>'Sửa rồi'</b><br/>"
             "• <b>'Đạt sửa'</b>, <b>'OK sửa'</b>",
             style_col3

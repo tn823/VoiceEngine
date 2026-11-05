@@ -97,11 +97,34 @@ _EXACT_PHRASE_MAP = {
     "đại lại": "đạt lại",
     "đang lai": "đạt lại",
     "đang lại": "đạt lại",
+    "đang lái": "đạt lại",
+    "đang bái": "đạt lại",
+    "đang lãi": "đạt lại",
+    "đang lạy": "đạt lại",
+    "đạt lái": "đạt lại",
+    "đạc lái": "đạt lại",
+    "đặt lái": "đạt lại",
+    "đạt lãi": "đạt lại",
+    "đạt lải": "đạt lại",
+    "đạt loại": "đạt lại",
+    "đạt lợi": "đạt lại",
+    "đạt lọi": "đạt lại",
+    "đạt nại": "đạt lại",
+    "đạt nạy": "đạt lại",
+    "đạt đại": "đạt lại",
+    "đạt tại": "đạt lại",
     "đặt lại": "đạt lại",
     "đạc lại": "đạt lại",
+    "đạp lại": "đạt lại",
     "đạt lạy": "đạt lại",
     "đạt loài": "đạt lại",
     "đạt lai": "đạt lại",
+    "rạc lại": "đạt lại",
+    "rạt lại": "đạt lại",
+    "gạt lại": "đạt lại",
+    "bạc lại": "đạt lại",
+    "tạt lại": "đạt lại",
+    "đàn lại": "đạt lại",
     "tốt lại": "đạt lại",
     "ok lại": "đạt lại",
     "ô kê lại": "đạt lại",
@@ -112,6 +135,8 @@ _EXACT_PHRASE_MAP = {
     "re ins pass": "đạt lại",
     "rì bát": "đạt lại",
     "ri bát": "đạt lại",
+    "rì bác": "đạt lại",
+    "ri bác": "đạt lại",
     "rì bạt": "đạt lại",
     "ri bạt": "đạt lại",
     "rì pass": "đạt lại",
@@ -120,6 +145,15 @@ _EXACT_PHRASE_MAP = {
     "re bát": "đạt lại",
     "riu bắp": "đạt lại",
     "riu bát": "đạt lại",
+    "vì bác": "đạt lại",
+    "vì bát": "đạt lại",
+    "gì bác": "đạt lại",
+    "gì bát": "đạt lại",
+    "dì bác": "đạt lại",
+    "dì bát": "đạt lại",
+    "lì bát": "đạt lại",
+    "lì bác": "đạt lại",
+    "lì bám": "đạt lại",
     "tái kiểm pass": "đạt lại",
     "tái kiểm đạt": "đạt lại",
     "đạt sửa": "sửa đạt",
@@ -224,6 +258,9 @@ _EXACT_PHRASE_MAP = {
     "một cục": "một một",
     "mỗi một": "một một",
     "mòn một": "một một",
+    "mò mò": "một một",
+    "mò một": "một một",
+    "một mò": "một một",
 
     # 6. HỦY / QUAY LẠI
     "hủy": "hủy",
@@ -285,20 +322,20 @@ def normalize_whisper_text(text: str) -> str:
     # Biến âm của "lỗi lại" và "lỗi" (gỏi, lỏi, gói, nội, lối, lổi, nỗi...)
     t = re.sub(r"\b(lỗi|lổi|lỏi|lối|lội|nỗi|nổi|nỏi|nối|nội|gỏi|gói|gọi|đổi|đội)\s+(lại|lai|lạy|loài)\b", "lỗi lại", t)
     t = re.sub(r"\b(lổi|lỏi|lối|lội|nỗi|nổi|nỏi|nối|nội|gỏi|gói|gọi|đổi|đội)\b", "lỗi", t)
-    t = re.sub(r"\b(re-?ins|re\s+ins|rì|ri|re|riu)\s+(bát|bạt|bắp|pass|pas|pát|đạt)\b", "đạt lại", t)
-    t = re.sub(r"\b(đại|đang|đặt|đạc)\s+(lại|lai|lạy)\b", "đạt lại", t)
+    t = re.sub(r"\b(re-?ins|re\s+ins|rì|ri|re|riu|vì|gì|dì|lì)\s+(bát|bác|bạt|bắp|bám|pass|pas|pát|đạt)\b", "đạt lại", t)
+    t = re.sub(r"\b(đạt|đại|đang|đặt|đạc|đạp|rạc|rạt|gạt|bạc|tạt|đàn)\s+(lại|lai|lạy|lái|lãi|lải|loại|loài|lợi|lọi|bái)\b", "đạt lại", t)
     t = re.sub(r"\b(sửa|sữa|rửa|giữa|xưa|xửa|sủa)\s+(ok|ô kê|oke|kê)\b", "sửa ô kê", t)
     t = re.sub(r"\b(sửa|sữa|rửa|giữa|xưa|xửa|sủa)\s+(đạt|đạn|đàn|đạc|đặt|đẹp|đèn|đen|đêm|xong|được|tốt|rồi)\b", "sửa đạt", t)
-    t = re.sub(r"\b(sữa|xửa|xữa|rửa|giữa|xưa|sủa)\s+lại\b", "sửa lại", t)
-    t = re.sub(r"\b(sữa|xửa|xữa|rửa|sủa)\b", "sửa", t)
+    t = re.sub(r"\b(sữa|xửa|xữa|rửa|giữa|xưa|sủa|sử|sở|sớ|sướng|xướng)\s+lại\b", "sửa lại", t)
+    t = re.sub(r"\b(sữa|xửa|xữa|rửa|sủa|sử|sở|sớ|sướng|xướng)\b", "sửa", t)
 
     if t in _EXACT_PHRASE_MAP:
         return _EXACT_PHRASE_MAP[t]
 
     # 6. Chuẩn hoá biến âm của SỐ ĐẦU TIÊN (Vị trí 1..6)
-    # "mỗi", "mòn", "mộc", "mốc", "mọt", "mọi", "mọp", "mồng", "mong", "mồm", "môm", "môn", "mông", "bột" -> "một"
+    # "mỗi", "mòn", "mò", "mộc", "mốc", "mọt", "mọi", "mọp", "mồng", "mong", "mồm", "môm", "môn", "mông", "bột" -> "một"
     t = re.sub(
-        r"\b(mỗi|mòn|mộc|mốc|mọt|mọi|mọp|mồng|mong|mồm|môm|môn|mông|bột|bộ)\s+(một|mốt|bộ|bột|mét|mép|con|hai|ba|bốn|tư|năm|lăm|sáu|bảy|bẩy|tám|tháng|chín|chính|mười|mươi|trăm|chấm|phẩy|bác|bát|bờ)\b",
+        r"\b(mỗi|mòn|mò|mộc|mốc|mọt|mọi|mọp|mồng|mong|mồm|môm|môn|mông|bột|bộ)\s+(một|mốt|mò|bộ|bột|mét|mép|con|hai|ba|bốn|tư|năm|lăm|sáu|bảy|bẩy|tám|tháng|chín|chính|mười|mươi|trăm|chấm|phẩy|bác|bát|báo|bờ)\b",
         r"một \2",
         t
     )
@@ -363,12 +400,12 @@ def normalize_whisper_text(text: str) -> str:
 
     # Khắc phục triệt để lỗi "1 1" ("một một") và "<vị trí> một" bị nghe thành "một bộ", "một mét", "một bột", "một con"...
     t = re.sub(
-        r"\b(một|hai|ba|bốn|tư|năm|sáu)\s+(bộ|bột|bậc|bọc|bọt|bộp|mét|mép|mọp|mọt|mộc|mốc|món|môn|mông|mồm|môm|con|hột|cột|cục|hộp)\b",
+        r"\b(một|hai|ba|bốn|tư|năm|sáu)\s+(bộ|bột|bậc|bọc|bọt|bộp|mét|mép|mọp|mọt|mộc|mốc|món|môn|mông|mồm|môm|mò|con|hột|cột|cục|hộp)\b",
         r"\1 một",
         t
     )
-    # "một bác", "một bát", "một pass" -> "một ba"
-    t = re.sub(r"^((?:(?:lỗi\s+lại|lỗi|sửa\s+lại|sửa)\s+)*)(một|hai|ba|bốn|tư|năm|sáu)\s+(bác|bát|pát|pat|bas|pass|bả|bá)\b", r"\1\2 ba", t)
+    # "một bác", "một bát", "một báo", "một pass" -> "một ba"
+    t = re.sub(r"^((?:(?:lỗi\s+lại|lỗi|sửa\s+lại|sửa)\s+)*)(một|hai|ba|bốn|tư|năm|sáu)\s+(bác|bát|báo|pát|pat|bas|pass|bả|bá)\b", r"\1\2 ba", t)
     # "một bờ" -> "một bốn"
     t = re.sub(r"^((?:(?:lỗi\s+lại|lỗi|sửa\s+lại|sửa)\s+)*)(một|hai|ba|bốn|tư|năm|sáu)\s+bờ\b", r"\1\2 bốn", t)
 

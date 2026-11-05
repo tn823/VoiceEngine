@@ -85,9 +85,12 @@ _DEFECT_SHORT_MAP = {
 }
 
 
-def _print_visual_command(text: str, cmd: dict | None, lat_ms: float = 0.0, conf: float = 0.0):
-    """Hiển thị visual log dạng box màu ANSI đẹp mắt y như CC_QA_VOICE."""
-    perf_str = f"⏱️ {lat_ms:.0f}ms | 🎯 Tin cậy: {int(conf * 100)}%" if lat_ms > 0 else ""
+def _print_visual_command(text: str, cmd: dict | None, lat_ms: float = 0.0, conf: float = 0.0, dev_name: str = ""):
+    """Hiển thị visual log dạng box màu ANSI trực quan, gọn gàng cho Console Test."""
+    perf_str = f"⏱️ {lat_ms:.0f}ms | 🎯 {int(conf * 100)}%" if lat_ms > 0 else ""
+    dev_tag = dev_name if dev_name else "MIC"
+    if len(dev_tag) > 22:
+        dev_tag = dev_tag[:20] + ".."
 
     if cmd:
         intent = cmd.get("intent")
@@ -96,18 +99,18 @@ def _print_visual_command(text: str, cmd: dict | None, lat_ms: float = 0.0, conf
             def_id = cmd.get("defect", 0)
             pos_label = get_pos_label(pos_id, bold=True)
             def_label = _DEFECT_SHORT_MAP.get(def_id, f"Lỗi #{def_id:02d}")
-            print(f"\n┌── 🎙️ [P211] NHẬN DIỆN THÀNH CÔNG: CHẤM LỖI QA " + "─" * 28 + "┐", flush=True)
+            print(f"\n┌── 🎙️ [{dev_tag}] NHẬN DIỆN THÀNH CÔNG: CHẤM LỖI QA " + "─" * max(4, 24 - len(dev_tag)) + "┐", flush=True)
             print(f"│  📍 Vị trí : \033[96m{pos_label:<26}\033[0m  ⚠️ Lỗi: \033[93m{def_label:<32}\033[0m │", flush=True)
             print(f"│  📝 Giọng  : \"\033[92m{text}\033[0m\"" + " " * max(1, 38 - len(text)) + f"{perf_str:<25} │", flush=True)
             print("└──" + "─" * 70 + "┘\n", flush=True)
 
         elif intent == "pass":
-            print(f"\n┌── ✅ [P211] KẾT QUẢ QUY TRÌNH: SẢN PHẨM ĐẠT (PASS) " + "─" * 23 + "┐", flush=True)
+            print(f"\n┌── ✅ [{dev_tag}] KẾT QUẢ QUY TRÌNH: SẢN PHẨM ĐẠT (PASS) " + "─" * max(4, 19 - len(dev_tag)) + "┐", flush=True)
             print(f"│  📝 Giọng  : \"\033[92m{text}\033[0m\"" + " " * max(1, 38 - len(text)) + f"{perf_str:<25} │", flush=True)
             print("└──" + "─" * 70 + "┘\n", flush=True)
 
         elif intent == "reins_pass":
-            print(f"\n┌── 🔄 [P211] TÁI KIỂM: ĐẠT LẠI / SỬA ĐẠT (RE-PASS) " + "─" * 21 + "┐", flush=True)
+            print(f"\n┌── 🔄 [{dev_tag}] TÁI KIỂM: ĐẠT LẠI / SỬA ĐẠT (RE-PASS) " + "─" * max(4, 17 - len(dev_tag)) + "┐", flush=True)
             print(f"│  📝 Giọng  : \"\033[92m{text}\033[0m\"" + " " * max(1, 38 - len(text)) + f"{perf_str:<25} │", flush=True)
             print("└──" + "─" * 70 + "┘\n", flush=True)
 
@@ -116,44 +119,30 @@ def _print_visual_command(text: str, cmd: dict | None, lat_ms: float = 0.0, conf
             def_id = cmd.get("defect", 0)
             pos_label = get_pos_label(pos_id, bold=True)
             def_label = _DEFECT_SHORT_MAP.get(def_id, f"Lỗi #{def_id:02d}")
-            print(f"\n┌── 🔄 [P211] TÁI KIỂM: LỖI LẠI / SỬA LẠI (RE-FAIL) " + "─" * 20 + "┐", flush=True)
+            print(f"\n┌── 🔄 [{dev_tag}] TÁI KIỂM: LỖI LẠI / SỬA LẠI (RE-FAIL) " + "─" * max(4, 16 - len(dev_tag)) + "┐", flush=True)
             print(f"│  📍 Vị trí : \033[96m{pos_label:<26}\033[0m  ⚠️ Lỗi: \033[93m{def_label:<32}\033[0m │", flush=True)
             print(f"│  📝 Giọng  : \"\033[92m{text}\033[0m\"" + " " * max(1, 38 - len(text)) + f"{perf_str:<25} │", flush=True)
             print("└──" + "─" * 70 + "┘\n", flush=True)
 
         elif intent == "fail":
-            print(f"\n┌── ❌ [P211] KẾT QUẢ QUY TRÌNH: SẢN PHẨM LỖI (FAIL) " + "─" * 20 + "┐", flush=True)
+            print(f"\n┌── ❌ [{dev_tag}] KẾT QUẢ QUY TRÌNH: SẢN PHẨM LỖI (FAIL) " + "─" * max(4, 16 - len(dev_tag)) + "┐", flush=True)
             print(f"│  📝 Giọng  : \"\033[93m{text}\033[0m\"" + " " * max(1, 38 - len(text)) + f"{perf_str:<25} │", flush=True)
             print("└──" + "─" * 70 + "┘\n", flush=True)
 
         elif intent == "sua":
-            print(f"\n┌── 🔄 [P211] TÁI KIỂM: LỖI LẠI / SỬA LẠI (RE-FAIL) " + "─" * 20 + "┐", flush=True)
+            print(f"\n┌── 🔄 [{dev_tag}] TÁI KIỂM: LỖI LẠI / SỬA LẠI (RE-FAIL) " + "─" * max(4, 16 - len(dev_tag)) + "┐", flush=True)
             print(f"│  📝 Giọng  : \"\033[93m{text}\033[0m\"" + " " * max(1, 38 - len(text)) + f"{perf_str:<25} │", flush=True)
             print("└──" + "─" * 70 + "┘\n", flush=True)
 
         elif intent == "cancel":
-            print(f"\n┌── ↩️ [P211] LỆNH ĐIỀU KHIỂN: HỦY BỎ / QUAY LẠI " + "─" * 24 + "┐", flush=True)
+            print(f"\n┌── ↩️ [{dev_tag}] LỆNH ĐIỀU KHIỂN: HỦY BỎ / QUAY LẠI " + "─" * max(4, 20 - len(dev_tag)) + "┐", flush=True)
             print(f"│  📝 Giọng  : \"\033[91m{text}\033[0m\"" + " " * max(1, 38 - len(text)) + f"{perf_str:<25} │", flush=True)
             print("└──" + "─" * 70 + "┘\n", flush=True)
 
-        elif intent == "bare_number":
-            idx = cmd.get("index", 0)
-            def_label = _DEFECT_SHORT_MAP.get(idx, f"Lỗi #{idx:02d}")
-            print(f"\n┌── 🔢 [P211] NHẬN SỐ LỖI: {def_label} " + "─" * max(1, 45 - len(def_label)) + "┐", flush=True)
-            print(f"│  📝 Giọng  : \"\033[96m{text}\033[0m\"" + " " * max(1, 38 - len(text)) + f"{perf_str:<25} │", flush=True)
-            print("└──" + "─" * 70 + "┘\n", flush=True)
-
-        elif intent == "position":
-            pos_id = cmd.get("position", 0)
-            pos_label = get_pos_label(pos_id, bold=True)
-            print(f"\n┌── 📍 [P211] CHỌN VỊ TRÍ: {pos_label} " + "─" * max(1, 50 - len(pos_label)) + "┐", flush=True)
-            print(f"│  📝 Giọng  : \"\033[96m{text}\033[0m\" (Chờ đọc số lỗi...)" + " " * max(1, 18 - len(text)) + f"{perf_str:<20} │", flush=True)
-            print("└──" + "─" * 70 + "┘\n", flush=True)
-
         else:
-            print(f"🎤 [P211] Lệnh: {cmd} | \"{text}\" ({perf_str})", flush=True)
+            print(f"🎤 [{dev_tag}] Lệnh: {cmd} | \"{text}\" ({perf_str})", flush=True)
     else:
-        print(f"\n⚠️  [P211] Nghe được: \"\033[90m{text}\033[0m\" ({perf_str}) -> Không khớp lệnh QA.", flush=True)
+        print(f"\n⚠️  [{dev_tag}] Nghe được: \"\033[90m{text}\033[0m\" ({perf_str}) -> Không khớp lệnh QA.", flush=True)
 
 
 def emit_ipc_event(data: dict):
@@ -768,9 +757,10 @@ def run_engine(ipc_mode: bool = False, device_spec=None, noise_gate: int = 180, 
                 except Exception:
                     wav_filename = ""
 
-            # LUÔN LUÔN ghi nhật ký JSON đầy đủ (bổ sung tên thiết bị để đối chiếu đa mic)
+            # LUÔN LUÔN ghi nhật ký JSONL (cho máy) + Log Text dễ đọc theo ngày (cho người kiểm tra)
             try:
                 ts_str = time.strftime("%Y-%m-%d %H:%M:%S")
+                date_tag = time.strftime("%Y%m%d")
                 audit_record = {
                     "timestamp": time.time(),
                     "time_str": ts_str,
@@ -786,6 +776,21 @@ def run_engine(ipc_mode: bool = False, device_spec=None, noise_gate: int = 180, 
                 }
                 with open(shadow_audit_file, "a", encoding="utf-8") as f:
                     f.write(json.dumps(audit_record, ensure_ascii=False) + "\n")
+
+                readable_log_file = os.path.join(Config.LOGS_DIR, f"voice_session_{date_tag}.log")
+                cmd_summary = "NONE"
+                if cmd:
+                    intent_val = (cmd.get("intent") or "").upper()
+                    if intent_val in ("INSPECTION", "REINS_FAIL"):
+                        cmd_summary = f"{intent_val}(VT={cmd.get('position')}, Loi=#{cmd.get('defect')})"
+                    else:
+                        cmd_summary = intent_val
+                readable_line = (
+                    f"{ts_str} | {dev_name:<26} | {status_str:<14} | "
+                    f"{lat_ms:>5.0f}ms | {conf * 100:>3.0f}% | \"{text}\" -> {cmd_summary}\n"
+                )
+                with open(readable_log_file, "a", encoding="utf-8") as rf:
+                    rf.write(readable_line)
             except Exception:
                 pass
 
@@ -798,6 +803,7 @@ def run_engine(ipc_mode: bool = False, device_spec=None, noise_gate: int = 180, 
                     "raw_text": raw_text,
                     "conf": round(conf, 4),
                     "latency_ms": round(lat_ms, 1),
+                    "status": status_str,
                 })
                 if is_valid_cmd:
                     emit_ipc_event({
@@ -809,7 +815,7 @@ def run_engine(ipc_mode: bool = False, device_spec=None, noise_gate: int = 180, 
                         "latency_ms": round(lat_ms, 1),
                     })
             else:
-                _print_visual_command(text, cmd, lat_ms=lat_ms, conf=conf)
+                _print_visual_command(text, cmd, lat_ms=lat_ms, conf=conf, dev_name=dev_name)
 
     try:
         stream.stop()
