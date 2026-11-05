@@ -170,6 +170,154 @@ def emit_ipc_event(data: dict):
         sys.stderr.flush()
 
 
+# ==============================================================================
+# QUẢN LÝ TIẾN TRÌNH & TRẠNG THÁI SỬ DỤNG MICROPHONE
+# ==============================================================================
+ACTIVE_MICS_FILE = os.path.join(Config.LOGS_DIR, ".active_mics.json")
+
+
+def _is_pid_alive(pid: int) -> bool:
+    """Kiểm tra một Process ID có đang thực sự chạy trên Windows hay không."""
+    if not pid or pid <= 0:
+        return False
+    try:
+        import ctypes
+        PROCESS_QUERY_LIMITED_INFORMATION = 0x1000
+        handle = ctypes.windll.kernel32.OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, False, pid)
+        if handle:
+            ctypes.windll.kernel32.CloseHandle(handle)
+            return True
+        return False
+    except Exception:
+        return False
+
+
+def get_active_devices() -> dict:
+    """Lấy danh sách các Microphone đang được VoiceEngine khác sử dụng."""
+    if not os.path.exists(ACTIVE_MICS_FILE):
+        return {}
+    try:
+        with open(ACTIVE_MICS_FILE, "r", encoding="utf-8") as f:
+            data = json.load(f)
+        alive = {}
+        my_pid = os.getpid()
+        for dev_name, info in data.items():
+            pid = info.get("pid")
+            if pid and pid != my_pid and _is_pid_alive(pid):
+                alive[dev_name] = info
+        return alive
+    except Exception:
+        return {}
+
+
+def register_active_device(dev_name: str):
+    """Đăng ký Microphone đang được sử dụng bởi tiến trình này."""
+    try:
+        os.makedirs(Config.LOGS_DIR, exist_ok=True)
+        active = get_active_devices()
+        active[dev_name] = {
+            "pid": os.getpid(),
+            "time": time.time(),
+            "time_str": time.strftime("%Y-%m-%d %H:%M:%S")
+        }
+        with open(ACTIVE_MICS_FILE, "w", encoding="utf-8") as f:
+            json.dump(active, f, ensure_ascii=False, indent=2)
+    except Exception:
+        pass
+
+
+def unregister_active_device(dev_name: str):
+    """Gỡ bỏ Microphone khỏi danh sách đang dùng khi tiến trình kết thúc."""
+    try:
+        if not os.path.exists(ACTIVE_MICS_FILE):
+            return
+        with open(ACTIVE_MICS_FILE, "r", encoding="utf-8") as f:
+            active = json.load(f)
+        my_pid = os.getpid()
+        if dev_name in active and active[dev_name].get("pid") == my_pid:
+            del active[dev_name]
+            with open(ACTIVE_MICS_FILE, "w", encoding="utf-8") as f:
+                json.dump(active, f, ensure_ascii=False, indent=2)
+    except Exception:
+        pass
+
+
+def prompt_select_device(sd) -> str | None:
+    """
+    Hiển thị danh sách Microphone WASAPI để người dùng chọn bằng số (1, 2, 3...)
+    Tự động hiển thị trạng thái ĐANG DÙNG (màu đỏ) hoặc SẴN SÀNG (màu xanh).
+    Tự động gợi ý mặc định là Mic rảnh đầu tiên để người dùng chỉ cần gõ Enter.
+    """
+    devices = sd.query_devices()
+    hostapis = sd.query_hostapis()
+    wasapi_id = next((i for i, api in enumerate(hostapis) if "wasapi" in api["name"].lower()), None)
+    if wasapi_id is None:
+        print("[LỖI] Không tìm thấy chuẩn âm thanh Windows WASAPI trên máy này.")
+        return None
+
+    wasapi_mics = []
+    seen_names = set()
+    for idx, dev in enumerate(devices):
+        if dev.get("hostapi") == wasapi_id and dev.get("max_input_channels", 0) > 0:
+            name = dev["name"].strip()
+            if name not in seen_names:
+                seen_names.add(name)
+                wasapi_mics.append({"index": idx, "name": name, "channels": dev.get("max_input_channels", 1)})
+
+    if not wasapi_mics:
+        print("[LỖI] Không phát hiện bất kỳ Microphone WASAPI nào đang cắm trên máy.")
+        return None
+
+    active_map = get_active_devices()
+
+    print("\n" + "=" * 76)
+    print("           DANH SÁCH MICROPHONE WASAPI TRÊN MÁY TÍNH")
+    print("=" * 76)
+
+    default_pick = None
+    for i, m in enumerate(wasapi_mics, start=1):
+        name = m["name"]
+        if name in active_map:
+            info = active_map[name]
+            status_tag = f"\033[91m🔴 ĐANG SỬ DỤNG (PID {info.get('pid')})\033[0m"
+        else:
+            if default_pick is None:
+                default_pick = i
+                status_tag = f"\033[92m🟢 SẴN SÀNG (Gợi ý)\033[0m"
+            else:
+                status_tag = f"\033[92m🟢 SẴN SÀNG\033[0m"
+
+        print(f"  [{i}] {name:<38} : {status_tag}")
+
+    if default_pick is None:
+        default_pick = 1
+
+    print("-" * 76)
+    prompt_msg = f"👉 Chọn Microphone (1-{len(wasapi_mics)}) [Mặc định: {default_pick}]: "
+    try:
+        user_input = input(prompt_msg).strip()
+    except (EOFError, KeyboardInterrupt):
+        print("\n[ĐÃ HỦY] Thoát chương trình.")
+        sys.exit(0)
+
+    if not user_input:
+        selected_idx = default_pick
+    else:
+        try:
+            selected_idx = int(user_input)
+            if not (1 <= selected_idx <= len(wasapi_mics)):
+                print(f"[CẢNH BÁO] Số lựa chọn không hợp lệ, tự động chọn [{default_pick}].")
+                selected_idx = default_pick
+        except ValueError:
+            print(f"[CẢNH BÁO] Giá trị nhập không phải là số, tự động chọn [{default_pick}].")
+            selected_idx = default_pick
+
+    chosen_dev = wasapi_mics[selected_idx - 1]
+    chosen_name = chosen_dev["name"]
+    print(f"✅ Đã chọn Microphone [{selected_idx}]: \"{chosen_name}\"\n")
+    return chosen_name
+
+
 def resolve_audio_device(device_spec, sd, target_sr: int = Config.SAMPLE_RATE):
     """
     Xác định device index phù hợp từ chỉ định của người dùng hoặc tự động chọn.
@@ -311,6 +459,12 @@ def run_engine(ipc_mode: bool = False, device_spec=None, noise_gate: int = 180, 
             emit_ipc_event({"event": "error", "message": err})
         return
 
+    # 0. Nếu không chỉ định thiết bị và đang ở Console Test Mode -> Bật Menu chọn Microphone trực quan
+    if device_spec is None and not _IS_IPC_MODE:
+        device_spec = prompt_select_device(sd)
+        if device_spec is None:
+            return
+
     # 1. Kiểm tra phần cứng Microphone trước tiên (Fast Fail - chống lãng phí nạp AI nếu mic lỗi)
     target_device, stream_sr, stream_channels, err_code, err_msg = resolve_audio_device(device_spec, sd)
     if target_device is None:
@@ -327,6 +481,11 @@ def run_engine(ipc_mode: bool = False, device_spec=None, noise_gate: int = 180, 
         dev_name = info.get("name", str(target_device))
     except Exception:
         dev_name = str(target_device)
+
+    # Đăng ký Microphone này đang bận để các tiến trình VoiceEngine khác phát hiện
+    register_active_device(dev_name)
+    import atexit
+    atexit.register(unregister_active_device, dev_name)
 
     # Khởi tạo thư mục shadow logs
     shadow_wav_dir = os.path.join(Config.LOGS_DIR, "shadow_wav")
@@ -612,6 +771,7 @@ def run_engine(ipc_mode: bool = False, device_spec=None, noise_gate: int = 180, 
         stream.close()
     except Exception:
         pass
+    unregister_active_device(dev_name)
     if not _IS_IPC_MODE:
         print("[STOP] VoiceEngine đã dừng hoàn toàn.")
 
