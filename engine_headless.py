@@ -696,11 +696,27 @@ def run_engine(ipc_mode: bool = False, device_spec=None, noise_gate: int = 180, 
 
             # Phân tích câu lệnh QA
             cmd = parse_command(text)
-            is_valid_cmd = (cmd is not None)
 
-            # Bỏ qua tạp âm độ tin cậy thấp nếu không khớp bất kỳ lệnh QA nào
-            if not is_valid_cmd and conf < Config.VOICE_MIN_CONFIDENCE:
-                continue
+            # Kiểm tra ngưỡng tin cậy (Confidence Guard)
+            # Đối với câu ngắn (<= 4 từ): yêu cầu conf >= 0.45
+            # Đối với câu dài (> 4 từ, nghi ngờ nói chuyện phiếm): yêu cầu conf >= 0.65
+            min_conf = Config.VOICE_MIN_CONFIDENCE
+            if len(text.split()) > 4:
+                min_conf = max(min_conf, 0.65)
+
+            is_valid_cmd = False
+            status_str = "UNMATCHED"
+
+            if cmd is not None:
+                if conf >= min_conf:
+                    is_valid_cmd = True
+                    status_str = "VALID_COMMAND"
+                else:
+                    cmd = None  # Hủy bỏ lệnh vì độ tin cậy quá thấp (tạp âm / nói chuyện ngoài luồng)
+                    status_str = "LOW_CONFIDENCE"
+            else:
+                if conf < 0.40:
+                    continue
 
             # Xác định có ghi file .wav hay không theo wav_mode
             should_save_wav = False
@@ -726,12 +742,13 @@ def run_engine(ipc_mode: bool = False, device_spec=None, noise_gate: int = 180, 
                 except Exception:
                     wav_filename = ""
 
-            # LUÔN LUÔN ghi nhật ký JSON đầy đủ (bất kể lệnh đúng hay không)
+            # LUÔN LUÔN ghi nhật ký JSON đầy đủ (bổ sung tên thiết bị để đối chiếu đa mic)
             try:
                 ts_str = time.strftime("%Y-%m-%d %H:%M:%S")
                 audit_record = {
                     "timestamp": time.time(),
                     "time_str": ts_str,
+                    "device": dev_name,
                     "wav_file": wav_filename if wav_filename else None,
                     "raw_whisper": raw_text,
                     "norm_text": text,
@@ -739,7 +756,7 @@ def run_engine(ipc_mode: bool = False, device_spec=None, noise_gate: int = 180, 
                     "latency_ms": round(lat_ms, 1),
                     "intent": cmd.get("intent") if cmd else None,
                     "cmd": cmd,
-                    "status": "VALID_COMMAND" if is_valid_cmd else "UNMATCHED"
+                    "status": status_str
                 }
                 with open(shadow_audit_file, "a", encoding="utf-8") as f:
                     f.write(json.dumps(audit_record, ensure_ascii=False) + "\n")
@@ -750,6 +767,7 @@ def run_engine(ipc_mode: bool = False, device_spec=None, noise_gate: int = 180, 
             if _IS_IPC_MODE:
                 emit_ipc_event({
                     "event": "speech",
+                    "device": dev_name,
                     "text": text,
                     "raw_text": raw_text,
                     "conf": round(conf, 4),
@@ -758,6 +776,7 @@ def run_engine(ipc_mode: bool = False, device_spec=None, noise_gate: int = 180, 
                 if is_valid_cmd:
                     emit_ipc_event({
                         "event": "command",
+                        "device": dev_name,
                         "cmd": cmd,
                         "text": text,
                         "conf": round(conf, 4),
