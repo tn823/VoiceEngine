@@ -194,14 +194,16 @@ class AudioPreprocessor:
     def is_speech(self, chunk_f32: np.ndarray, rms: int) -> tuple[bool, float]:
         """
         Kiểm tra chunk hiện tại có tiếng người nói hay không.
-        Sử dụng RMS làm cổng phát hiện chính. Silero VAD hỗ trợ cộng hưởng.
+        Khi có Silero VAD AI: Bắt buộc VAD phải phát hiện tiếng người (tránh kích hoạt bởi tạp âm/ù rè dù RMS cao)
+        và RMS phải đạt ngưỡng năng lượng tối thiểu (tránh kích hoạt bởi tiếng thở cực nhẹ).
+        Chỉ fallback về RMS thuần khi Silero VAD không khả dụng.
         """
-        is_rms_speech = (rms >= self.noise_gate_threshold)
-
         if self.vad is not None and self.vad.is_available:
             is_vad_speech, vad_prob = self.vad.process_chunk(chunk_f32)
-            return (is_rms_speech or (is_vad_speech and rms >= 60)), vad_prob
+            is_speech_chunk = bool(is_vad_speech and rms >= 60)
+            return is_speech_chunk, vad_prob
 
+        is_rms_speech = (rms >= self.noise_gate_threshold)
         return is_rms_speech, (1.0 if is_rms_speech else 0.0)
 
     def prepare_for_asr(self, audio: np.ndarray, sample_rate: int | None = None) -> np.ndarray:
@@ -238,7 +240,7 @@ class AudioPreprocessor:
         # 3. AGC - nâng biên độ về dải chuẩn:
         if self.enable_agc and x.size:
             rms = float(np.sqrt(np.mean(x ** 2))) * 32768.0
-            if rms >= 70.0:
+            if rms >= 40.0:
                 gain = float(self.agc_target_rms) / rms
                 gain = float(np.clip(gain, 1.0, self.agc_max_gain))
                 if gain > 1.0:

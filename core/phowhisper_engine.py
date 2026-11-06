@@ -31,8 +31,9 @@ _engine_instance = None
 _engine_lock = threading.Lock()
 
 _DEFAULT_INITIAL_PROMPT = (
-    "A một, A hai, Bê năm, Xê mười một, Đê mười tám, Ép hai tư, Ê mười lăm, "
-    "Một A, Hai Bê, Pass, Đạt, Sửa Đạt, Sửa Lỗi."
+    "Một, hai, ba, bốn, năm, sáu, mười, mười một, mười hai, mười ba, mười bốn, mười lăm, "
+    "mười sáu, mười bảy, mười tám, mười chín, hai mươi, hai mốt, hai hai, hai ba, hai tư, "
+    "đạt, đạt lại, lỗi, lỗi lại, sửa lại, sửa, pass, re-ins pass, hủy, quay lại."
 )
 
 _HF_REPO_ID = "ntn823/phowhisper-tiny-cuchi-int8"
@@ -41,7 +42,7 @@ _HF_REPO_ID = "ntn823/phowhisper-tiny-cuchi-int8"
 class PhoWhisperEngine:
     def __init__(self, model_path: str = "", cpu_threads: int = 2):
         self.model_path = model_path or getattr(Config, "PHOWHISPER_MODEL_PATH", "")
-        self.initial_prompt = getattr(Config, "PHOWHISPER_INITIAL_PROMPT", None)
+        self.initial_prompt = getattr(Config, "PHOWHISPER_INITIAL_PROMPT", None) or _DEFAULT_INITIAL_PROMPT
         if not self.model_path or not os.path.exists(self.model_path):
             candidates = [
                 os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "models", "phowhisper-tiny-ct2-int8"),

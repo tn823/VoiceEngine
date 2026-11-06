@@ -404,31 +404,31 @@ def resolve_audio_device(device_spec, sd, target_sr: int = Config.SAMPLE_RATE):
         m = wasapi_mics[0]
         return m["index"], m["sr"], m["channels"], None, None
 
-    spec_lower = spec_str.lower()
-
-    # 3. Khớp tên thiết bị trên WASAPI (Hỗ trợ Substring / Alias):
+    # 3. Khớp tên thiết bị trên WASAPI (Hỗ trợ Substring / Alias / Danh sách ưu tiên phân cách bằng dấu phẩy):
+    spec_candidates = [s.strip().lower() for s in spec_str.split(",") if s.strip()]
     if wasapi_mics:
-        # Khớp chính xác
-        exact = [m for m in wasapi_mics if m["name"].lower() == spec_lower]
-        if len(exact) == 1:
-            return exact[0]["index"], exact[0]["sr"], exact[0]["channels"], None, None
+        for cand in spec_candidates:
+            # Khớp chính xác
+            exact = [m for m in wasapi_mics if m["name"].lower() == cand]
+            if len(exact) == 1:
+                return exact[0]["index"], exact[0]["sr"], exact[0]["channels"], None, None
 
-        # Khớp từ khóa trong tên (ví dụ "BY-V" trong "Microphone (BY-V)" hoặc "Realtek" trong "마이크 (Realtek(R) Audio)")
-        matched = [m for m in wasapi_mics if spec_lower in m["name"].lower()]
+            # Khớp từ khóa trong tên (ví dụ "BY-V", "USB Audio Device", "Realtek")
+            matched = [m for m in wasapi_mics if cand in m["name"].lower()]
 
-        if len(matched) == 1:
-            return matched[0]["index"], matched[0]["sr"], matched[0]["channels"], None, None
+            if len(matched) == 1:
+                return matched[0]["index"], matched[0]["sr"], matched[0]["channels"], None, None
 
-        if len(matched) > 1:
-            # Nếu có nhiều thiết bị cùng chứa từ khóa, ưu tiên thiết bị đang rảnh
-            free_matched = [m for m in matched if m["name"] not in active_map]
-            if len(free_matched) == 1:
-                return free_matched[0]["index"], free_matched[0]["sr"], free_matched[0]["channels"], None, None
-            if len(free_matched) > 1:
-                matched_names = ", ".join(f"'{m['name']}'" for m in free_matched)
-                return None, target_sr, 1, "ambiguous_device_name", f"Phát hiện nhiều Microphone rảnh cùng khớp với từ khóa '{spec_str}': {matched_names}."
-            matched_names = ", ".join(f"'{m['name']}'" for m in matched)
-            return None, target_sr, 1, "ambiguous_device_name", f"Phát hiện {len(matched)} thiết bị cùng khớp với từ khóa '{spec_str}': {matched_names}."
+            if len(matched) > 1:
+                # Nếu có nhiều thiết bị cùng chứa từ khóa, ưu tiên thiết bị đang rảnh
+                free_matched = [m for m in matched if m["name"] not in active_map]
+                if len(free_matched) == 1:
+                    return free_matched[0]["index"], free_matched[0]["sr"], free_matched[0]["channels"], None, None
+                if len(free_matched) > 1:
+                    matched_names = ", ".join(f"'{m['name']}'" for m in free_matched)
+                    return None, target_sr, 1, "ambiguous_device_name", f"Phát hiện nhiều Microphone rảnh cùng khớp với từ khóa '{cand}': {matched_names}."
+                matched_names = ", ".join(f"'{m['name']}'" for m in matched)
+                return None, target_sr, 1, "ambiguous_device_name", f"Phát hiện {len(matched)} thiết bị cùng khớp với từ khóa '{cand}': {matched_names}."
 
     # Trong chế độ IPC: không tìm thấy WASAPI khớp là lỗi
     if _IS_IPC_MODE:
@@ -685,10 +685,10 @@ def run_engine(ipc_mode: bool = False, device_spec=None, noise_gate: int = 180, 
             if not _IS_IPC_MODE:
                 print("\r⏳ [ASR] Đang nhận diện PhoWhisper...", end="", flush=True)
 
-            # Lọc năng lượng thô
+            # Lọc năng lượng thô (tránh chunk rỗng / im lặng tuyệt đối)
             peak_amp = float(np.max(np.abs(audio_full))) * 32768.0
             rms_amp = float(np.sqrt(np.mean(audio_full ** 2))) * 32768.0
-            if peak_amp < 2500 or rms_amp < 80:
+            if peak_amp < 1200 or rms_amp < 45:
                 if not _IS_IPC_MODE:
                     print("\r" + " " * 50 + "\r", end="", flush=True)
                 continue

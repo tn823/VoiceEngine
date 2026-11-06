@@ -140,9 +140,9 @@ def build_pdf():
 
     # Hàng 2: Reason
     table_data.append([
-        Paragraph("<b>Reason</b><br/><font color='#64748B' size='9'>(Mã lỗi)</font>", style_col1),
-        Paragraph("<b>1, 2, 3 ... 17</b>", style_col2),
-        Paragraph("<b>Một</b>, <b>Hai</b>, <b>Ba</b> ... <b>Mười bảy</b>", style_col3),
+        Paragraph("<b>Reason</b><br/><font color='#64748B' size='9'>(Mã lỗi 1..16)</font>", style_col1),
+        Paragraph("<b>1, 2, 3 ... 16</b>", style_col2),
+        Paragraph("<b>Một</b>, <b>Hai</b>, <b>Ba</b> ... <b>Mười sáu</b>", style_col3),
     ])
 
     # Hàng 3: Pass
@@ -152,7 +152,20 @@ def build_pdf():
         Paragraph("• <b>'Đạt'</b>, <b>'Pass'</b>, <b>'Qua'</b><br/>• <b>'OK'</b>, <b>'Ô kê'</b>, <b>'Cho pass'</b>", style_col3),
     ])
 
-    # Hàng 4: Re-Pass
+    # Hàng 4: Fail (Đưa lên ngay sau Pass theo đúng quy trình)
+    table_data.append([
+        Paragraph("<font color='#DC2626'><b>Fail</b></font><br/><font color='#64748B' size='9'>(Chấm lỗi)</font>", style_col1),
+        Paragraph("<b>Số - Số</b><br/><i>(part reason)</i>", style_col2),
+        Paragraph(
+            "• <b>'Một một'</b>, <b>'Một hai'</b>, <b>'Một mười sáu'</b><br/>"
+            "• <b>'Hai mười'</b>, <b>'Hai mười bốn'</b><br/>"
+            "• <b>'Ba mười sáu'</b>, <b>'Lỗi một mười sáu'</b><br/>"
+            "• <i>Nói đơn lẻ:</i> <b>'Lỗi'</b>",
+            style_col3
+        ),
+    ])
+
+    # Hàng 5: Re-Pass
     table_data.append([
         Paragraph("<font color='#0284C7'><b>Re-Pass</b></font><br/><font color='#64748B' size='9'>(Tái kiểm đạt)</font>", style_col1),
         Paragraph("<b>Đạt lại, OK lại</b><br/><b>re pass / re-ins pass</b> <i>('rì bát')</i><br/><i>(hoặc Sửa đạt, Sửa rồi)</i>", style_col2),
@@ -164,26 +177,14 @@ def build_pdf():
         ),
     ])
 
-    # Hàng 5: Fail
-    table_data.append([
-        Paragraph("<font color='#DC2626'><b>Fail</b></font><br/><font color='#64748B' size='9'>(Chấm lỗi)</font>", style_col1),
-        Paragraph("<b>Số - Số</b><br/><i>(part reason)</i>", style_col2),
-        Paragraph(
-            "• <b>'Một một'</b>, <b>'Một hai'</b>, <b>'Một mười bảy'</b><br/>"
-            "• <b>'Hai mười hai'</b>, <b>'Hai mười tám'</b><br/>"
-            "• <b>'Ba mười bảy'</b>, <b>'Lỗi một mười bảy'</b>",
-            style_col3
-        ),
-    ])
-
     # Hàng 6: Re-Fail
     table_data.append([
         Paragraph("<font color='#D97706'><b>Re-Fail</b></font><br/><font color='#64748B' size='9'>(Tái kiểm lỗi)</font>", style_col1),
         Paragraph("• <b>Số - Số + sửa</b><br/>• <b>Số - Số + lại</b>", style_col2),
         Paragraph(
             "• <b>'Một một sửa'</b>, <b>'Một một lại'</b><br/>"
-            "• <b>'Hai mười hai sửa'</b>, <b>'Hai mười hai lại'</b><br/>"
-            "• <b>'Ba mười bảy sửa'</b>, <b>'Ba mười bảy lại'</b><br/>"
+            "• <b>'Hai mười sửa'</b>, <b>'Hai mười lại'</b><br/>"
+            "• <b>'Ba mười sáu sửa'</b>, <b>'Ba mười sáu lại'</b><br/>"
             "• <i>Nói đơn lẻ:</i> <b>'Sửa lại'</b>, <b>'Lỗi lại'</b>, <b>'Sửa'</b>",
             style_col3
         ),
@@ -200,12 +201,12 @@ def build_pdf():
         ('BOTTOMPADDING', (0, 0), (-1, -1), 11),
         ('LEFTPADDING', (0, 0), (-1, -1), 10),
         ('RIGHTPADDING', (0, 0), (-1, -1), 10),
-        # Màu nền xen kẽ nhẹ nhàng, dễ đọc
+        # Màu nền xen kẽ nhẹ nhàng, dễ đọc theo thứ tự: Part -> Reason -> Pass -> Fail -> Re-Pass -> Re-Fail
         ('BACKGROUND', (0, 1), (-1, 1), colors.HexColor("#FFFFFF")),
         ('BACKGROUND', (0, 2), (-1, 2), colors.HexColor("#F8FAFC")),
         ('BACKGROUND', (0, 3), (-1, 3), colors.HexColor("#F0FDF4")), # Pass xanh lá nhẹ
-        ('BACKGROUND', (0, 4), (-1, 4), colors.HexColor("#F0F9FF")), # Re-pass xanh biển nhẹ
-        ('BACKGROUND', (0, 5), (-1, 5), colors.HexColor("#FEF2F2")), # Fail đỏ nhẹ
+        ('BACKGROUND', (0, 4), (-1, 4), colors.HexColor("#FEF2F2")), # Fail đỏ nhẹ
+        ('BACKGROUND', (0, 5), (-1, 5), colors.HexColor("#F0F9FF")), # Re-pass xanh biển nhẹ
         ('BACKGROUND', (0, 6), (-1, 6), colors.HexColor("#FFFBEB")), # Re-fail vàng nhẹ
     ]))
 

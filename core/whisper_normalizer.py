@@ -94,6 +94,25 @@ _EXACT_PHRASE_MAP = {
 
     # 2. ĐẠT LẠI / SỬA ĐẠT (RE-PASS)
     "đạt lại": "đạt lại",
+    "đẹp lại": "đạt lại",
+    "đẹc lại": "đạt lại",
+    "đang phải": "đạt lại",
+    "đang vai": "đạt lại",
+    "đang vải": "đạt lại",
+    "đẹp mà": "đạt lại",
+    "đẹp mà anh": "đạt lại",
+    "đẹp nại": "đạt lại",
+    "đang nại": "đạt lại",
+    "đang nái": "đạt lại",
+    "đáp lại": "đạt lại",
+    "đặc lại": "đạt lại",
+    "đạn lại": "đạt lại",
+    "đoạt lại": "đạt lại",
+    "đột lại": "đạt lại",
+    "bạt lại": "đạt lại",
+    "bẹp lại": "đạt lại",
+    "đạt bài": "đạt lại",
+    "đang bài": "đạt lại",
     "đại lại": "đạt lại",
     "đang lai": "đạt lại",
     "đang lại": "đạt lại",
@@ -323,19 +342,23 @@ def normalize_whisper_text(text: str) -> str:
     t = re.sub(r"\b(lỗi|lổi|lỏi|lối|lội|nỗi|nổi|nỏi|nối|nội|gỏi|gói|gọi|đổi|đội)\s+(lại|lai|lạy|loài)\b", "lỗi lại", t)
     t = re.sub(r"\b(lổi|lỏi|lối|lội|nỗi|nổi|nỏi|nối|nội|gỏi|gói|gọi|đổi|đội)\b", "lỗi", t)
     t = re.sub(r"\b(re-?ins|re\s+ins|rì|ri|re|riu|vì|gì|dì|lì)\s+(bát|bác|bạt|bắp|bám|pass|pas|pát|đạt)\b", "đạt lại", t)
-    t = re.sub(r"\b(đạt|đại|đang|đặt|đạc|đạp|rạc|rạt|gạt|bạc|tạt|đàn)\s+(lại|lai|lạy|lái|lãi|lải|loại|loài|lợi|lọi|bái)\b", "đạt lại", t)
+    t = re.sub(r"\b(đạt|đại|đang|đặt|đạc|đạp|đẹp|đẹc|đặc|đáp|đạn|đoạt|đột|rạc|rạt|gạt|bạc|bạt|bẹp|tạt|đàn)\s+(lại|lai|lạy|lái|lãi|lải|loại|loài|lợi|lọi|bái|phải|vai|vải|nại|nạy|nái|bài|mài|mà)\b", "đạt lại", t)
     t = re.sub(r"\b(sửa|sữa|rửa|giữa|xưa|xửa|sủa)\s+(ok|ô kê|oke|kê)\b", "sửa ô kê", t)
     t = re.sub(r"\b(sửa|sữa|rửa|giữa|xưa|xửa|sủa)\s+(đạt|đạn|đàn|đạc|đặt|đẹp|đèn|đen|đêm|xong|được|tốt|rồi)\b", "sửa đạt", t)
     t = re.sub(r"\b(sữa|xửa|xữa|rửa|giữa|xưa|sủa|sử|sở|sớ|sướng|xướng)\s+lại\b", "sửa lại", t)
+    t = re.sub(r"\b(\d+|một|mốt|hai|ba|bốn|tư|năm|lăm|sáu|bảy|bẩy|tám|tháng|chín|mười|mươi)\s+(?:sớm|sớ|sử|sở|sướng|xướng)\b", r"\1 sửa", t)
     t = re.sub(r"\b(sữa|xửa|xữa|rửa|sủa|sử|sở|sớ|sướng|xướng)\b", "sửa", t)
 
     if t in _EXACT_PHRASE_MAP:
         return _EXACT_PHRASE_MAP[t]
 
+    # Lọc bỏ từ đệm trước số vị trí (VD: "chỉ một một" -> "một một", "cho một một" -> "một một")
+    t = re.sub(r"^(?:chỉ|thử|cho|vị\s+trí|số)\s+([1-6]|một|hai|ba|bốn|tư|năm|lăm|sáu)\b", r"\1", t)
+
     # 6. Chuẩn hoá biến âm của SỐ ĐẦU TIÊN (Vị trí 1..6)
-    # "mỗi", "mòn", "mò", "mộc", "mốc", "mọt", "mọi", "mọp", "mồng", "mong", "mồm", "môm", "môn", "mông", "bột" -> "một"
+    # "mỗi", "mòn", "mò", "mỏ", "mó", "món", "móp", "mót", "mộc", "mốc", "mọt", "mọi", "mọp", "mồng", "mong", "mồm", "môm", "môn", "mông", "bột" -> "một"
     t = re.sub(
-        r"\b(mỗi|mòn|mò|mộc|mốc|mọt|mọi|mọp|mồng|mong|mồm|môm|môn|mông|bột|bộ)\s+(một|mốt|mò|bộ|bột|mét|mép|con|hai|ba|bốn|tư|năm|lăm|sáu|bảy|bẩy|tám|tháng|chín|chính|mười|mươi|trăm|chấm|phẩy|bác|bát|báo|bờ)\b",
+        r"\b(mỗi|mòn|mò|mỏ|mó|món|móp|mót|mộc|mốc|mọt|mọi|mọp|mồng|mong|mồm|môm|môn|mông|bột|bộ)\s+(một|mốt|mò|bộ|bột|mét|mép|con|hai|ba|bốn|tư|năm|lăm|sáu|bảy|bẩy|tám|tháng|chín|chính|mười|mươi|trăm|chấm|phẩy|bác|bát|báo|bờ)\b",
         r"một \2",
         t
     )
